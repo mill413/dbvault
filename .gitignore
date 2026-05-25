@@ -12,6 +12,6 @@ __pycache__/
 htmlcov/
 dist/
 build/
+*.egg-info/
 dbvault_tmp/
 dbvault_backups/
-

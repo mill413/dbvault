@@ -1,0 +1,51 @@
+from sqlalchemy.orm import Session
+
+from app.core.encryption import decrypt_secret, encrypt_secret
+from app.core.errors import AppError
+from app.drivers.registry import registry
+from app.models import DatabaseInstance, User
+
+
+def create_database(db: Session, payload, user: User) -> DatabaseInstance:
+    instance = DatabaseInstance(
+        name=payload.name,
+        db_type=payload.db_type.lower(),
+        host=payload.host,
+        port=payload.port,
+        username=payload.username,
+        password_encrypted=encrypt_secret(payload.password),
+        database_name=payload.database_name,
+        ssl_enabled=payload.ssl_enabled,
+        ssl_config=payload.ssl_config,
+        environment=payload.environment,
+        owner=payload.owner,
+        tags=payload.tags,
+        description=payload.description,
+        created_by=user.id,
+    )
+    db.add(instance)
+    db.commit()
+    db.refresh(instance)
+    return instance
+
+
+def update_database(instance: DatabaseInstance, payload) -> DatabaseInstance:
+    data = payload.model_dump(exclude_unset=True)
+    password = data.pop("password", None)
+    for key, value in data.items():
+        setattr(instance, key, value)
+    if password is not None:
+        instance.password_encrypted = encrypt_secret(password)
+    return instance
+
+
+def build_database_driver(instance: DatabaseInstance):
+    try:
+        driver_cls = registry.get_database(instance.db_type)
+    except KeyError as exc:
+        raise AppError("DATABASE_DRIVER_NOT_FOUND", str(exc), status_code=400) from exc
+    return driver_cls(instance, decrypt_secret(instance.password_encrypted))
+
+def test_database_connection(instance: DatabaseInstance) -> dict:
+    return build_database_driver(instance).test_connection()
+
