@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.core.errors import AppError
 from app.models import User
 from app.schemas.auth import ChangePasswordRequest, LoginRequest, RefreshRequest, TokenResponse
 from app.schemas.common import Message
@@ -20,7 +21,19 @@ router = APIRouter()
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
-    user = authenticate_user(db, payload.username, payload.password)
+    try:
+        user = authenticate_user(db, payload.username, payload.password)
+    except AppError as exc:
+        create_audit_log(
+            db,
+            user=None,
+            action="auth.login",
+            request=request,
+            result="failed",
+            reason=exc.message,
+            metadata={"username": payload.username},
+        )
+        raise
     create_audit_log(db, user=user, action="auth.login", request=request)
     return build_token_response(user)
 
@@ -55,4 +68,3 @@ def change_own_password(
     change_password(db, user, payload.old_password, payload.new_password)
     create_audit_log(db, user=user, action="auth.change_password", request=request)
     return {"message": "password changed"}
-
