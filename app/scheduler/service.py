@@ -3,7 +3,12 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from app.models import Job
+from app.core.database import SessionLocal
+from app.models import BackupTask, Job, User
+from app.schemas.backups import BackupRunRequest
+from app.services.backup_service import create_backup_task, run_backup_task
+
+_scheduler: BackgroundScheduler | None = None
 
 
 def build_trigger(job: Job):
@@ -26,3 +31,90 @@ def build_trigger(job: Job):
 def create_scheduler() -> BackgroundScheduler:
     return BackgroundScheduler(timezone="Asia/Shanghai")
 
+
+def execute_job(job_id: int) -> None:
+    db = SessionLocal()
+    try:
+        job = db.get(Job, job_id)
+        if not job or not job.enabled or job.deleted_at is not None:
+            return
+        if not job.allow_concurrent:
+            running = (
+                db.query(BackupTask)
+                .filter(BackupTask.job_id == job.id, BackupTask.status.in_(["PENDING", "RUNNING"]))
+                .first()
+            )
+            if running:
+                job.skipped_count += 1
+                db.commit()
+                return
+        payload = BackupRunRequest(
+            database_id=job.database_id,
+            storage_id=job.storage_id,
+            compression=job.backup_config.get("compression", "zstd"),
+            checksum=job.backup_config.get("checksum", ["sha256"]),
+            retention=job.retention_policy,
+        )
+        user = db.get(User, job.created_by) if job.created_by else None
+        if not user:
+            job.skipped_count += 1
+            db.commit()
+            return
+        task = create_backup_task(db, payload, user, trigger_type="JOB")
+        task.job_id = job.id
+        db.commit()
+        result = run_backup_task(db, task.id)
+        job.last_run_at = result.started_at
+        job.last_status = result.status
+        db.commit()
+    finally:
+        db.close()
+
+
+def get_scheduler() -> BackgroundScheduler:
+    global _scheduler
+    if _scheduler is None:
+        _scheduler = create_scheduler()
+    return _scheduler
+
+
+def register_job(job: Job) -> None:
+    scheduler = get_scheduler()
+    scheduler.add_job(
+        execute_job,
+        trigger=build_trigger(job),
+        args=[job.id],
+        id=f"job-{job.id}",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+
+def remove_job(job_id: int) -> None:
+    scheduler = get_scheduler()
+    if scheduler.get_job(f"job-{job_id}"):
+        scheduler.remove_job(f"job-{job_id}")
+
+
+def reload_job(job: Job) -> None:
+    remove_job(job.id)
+    if job.enabled and job.deleted_at is None:
+        register_job(job)
+
+
+def start_scheduler() -> None:
+    scheduler = get_scheduler()
+    db = SessionLocal()
+    try:
+        for job in db.query(Job).filter(Job.enabled.is_(True), Job.deleted_at.is_(None)).all():
+            register_job(job)
+    finally:
+        db.close()
+    if not scheduler.running:
+        scheduler.start()
+
+
+def shutdown_scheduler() -> None:
+    scheduler = get_scheduler()
+    if scheduler.running:
+        scheduler.shutdown(wait=False)

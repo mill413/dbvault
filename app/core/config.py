@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     openapi_enabled: bool = True
     run_background_tasks_inline: bool = False
+    scheduler_enabled: bool = True
     initial_admin_username: str = "admin"
     initial_admin_password: str = Field(default="admin123456789", min_length=12)
 
@@ -33,4 +34,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

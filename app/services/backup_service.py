@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.drivers.registry import registry
 from app.models import Backup, BackupTask, DatabaseInstance, Storage, User
+from app.services.alert_service import create_alert
 from app.services.audit_service import add_task_event
 from app.services.database_service import build_database_driver
 from app.services.lifecycle_service import calculate_expires_at
@@ -166,6 +167,16 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
             phase=task.phase,
             message=task.error_message,
         )
+        create_alert(
+            db,
+            alert_type="BACKUP_FAILED",
+            severity="Critical",
+            resource_type="backup_task",
+            resource_id=task.id,
+            title="Backup task failed",
+            message=task.error_message or "Backup task failed",
+            dedupe_key=f"backup:{task.database_id}:{task.error_code}",
+        )
         return task
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
@@ -250,4 +261,3 @@ def verify_backup(db: Session, backup: Backup) -> dict:
         return {"ok": ok, "expected_sha256": backup.sha256, "actual_sha256": actual}
     finally:
         local_path.unlink(missing_ok=True)
-

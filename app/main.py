@@ -9,6 +9,7 @@ from app.core.database import Base, SessionLocal, engine
 from app.core.errors import AppError, app_error_handler
 from app.core.logging import configure_logging
 from app.drivers.bootstrap import register_builtin_drivers
+from app.scheduler.service import shutdown_scheduler, start_scheduler
 from app.services.auth_service import ensure_initial_admin
 
 
@@ -22,7 +23,10 @@ async def lifespan(app: FastAPI):
         ensure_initial_admin(db)
     finally:
         db.close()
+    if get_settings().scheduler_enabled:
+        start_scheduler()
     yield
+    shutdown_scheduler()
 
 
 settings = get_settings()
@@ -50,4 +54,3 @@ app.include_router(api_router, prefix="/api/v1")
 @app.get("/health")
 def health():
     return {"status": "ok"}
-

@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.errors import AppError
 from app.models import Job, User
+from app.scheduler.service import reload_job, remove_job
 from app.schemas.backups import BackupRunRequest, TaskCreatedResponse
 from app.schemas.common import Message, Page
 from app.schemas.jobs import JobCreate, JobRead, JobUpdate
@@ -53,6 +54,7 @@ def create_job(
     db.add(job)
     db.commit()
     db.refresh(job)
+    reload_job(job)
     create_audit_log(db, user=user, action="job.create", resource_type="job", resource_id=job.id, request=request)
     return job
 
@@ -80,6 +82,7 @@ def update_job(
         setattr(job, key, value)
     db.commit()
     db.refresh(job)
+    reload_job(job)
     create_audit_log(db, user=user, action="job.update", resource_type="job", resource_id=job.id, request=request)
     return job
 
@@ -96,6 +99,7 @@ def delete_job(
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
     job.deleted_at = datetime.now(UTC)
     db.commit()
+    remove_job(job.id)
     create_audit_log(db, user=user, action="job.delete", resource_type="job", resource_id=job.id, request=request)
     return {"message": "deleted"}
 
@@ -108,6 +112,7 @@ def enable_job(job_id: int, db: Session = Depends(get_db), _: User = Depends(req
     job.enabled = True
     db.commit()
     db.refresh(job)
+    reload_job(job)
     return job
 
 
@@ -119,6 +124,7 @@ def disable_job(job_id: int, db: Session = Depends(get_db), _: User = Depends(re
     job.enabled = False
     db.commit()
     db.refresh(job)
+    remove_job(job.id)
     return job
 
 
@@ -149,4 +155,3 @@ def run_job_now(
     else:
         background_tasks.add_task(_run_backup_task_with_new_session, task.id)
     return {"task_id": task.id, "status": task.status}
-

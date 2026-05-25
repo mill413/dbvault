@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.drivers.registry import registry
 from app.models import Backup, DatabaseInstance, RestoreTask, Storage, User
+from app.services.alert_service import create_alert
 from app.services.audit_service import add_task_event
 from app.services.database_service import build_database_driver
 from app.services.storage_service import build_storage_driver
@@ -136,7 +137,16 @@ def run_restore_task(db: Session, task_id: int) -> RestoreTask:
             phase=task.phase,
             message=task.error_message,
         )
+        create_alert(
+            db,
+            alert_type="RESTORE_FAILED",
+            severity="Critical",
+            resource_type="restore_task",
+            resource_id=task.id,
+            title="Restore task failed",
+            message=task.error_message or "Restore task failed",
+            dedupe_key=f"restore:{task.backup_id}:{task.error_code}",
+        )
         return task
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
-

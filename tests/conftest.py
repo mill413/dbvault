@@ -11,6 +11,7 @@ os.environ["DBVAULT_JWT_SECRET"] = "test-secret"
 os.environ["DBVAULT_BACKUP_TMP_DIR"] = str(TEST_ROOT / "tmp")
 os.environ["DBVAULT_LOCAL_STORAGE_ROOT"] = str(TEST_ROOT / "backups")
 os.environ["DBVAULT_RUN_BACKGROUND_TASKS_INLINE"] = "true"
+os.environ["DBVAULT_SCHEDULER_ENABLED"] = "false"
 os.environ["DBVAULT_INITIAL_ADMIN_PASSWORD"] = "admin123456789"
 
 from app.core.database import Base, engine  # noqa: E402
@@ -76,4 +77,3 @@ def create_database_instance(client, headers, *, name: str = "orders") -> int:
     )
     assert response.status_code == 200, response.text
     return response.json()["id"]
-
