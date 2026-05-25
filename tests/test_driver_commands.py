@@ -1,0 +1,74 @@
+from pathlib import Path
+
+from app.core.encryption import encrypt_secret
+from app.drivers.database.mysql import MySQLDriver
+from app.drivers.database.postgresql import PostgreSQLDriver
+from app.models import DatabaseInstance
+
+
+def test_mysql_driver_uses_argument_array_and_env_password(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(args, *, env=None, input_file=None, output_file=None, timeout_seconds=21600):
+        calls.append({"args": args, "env": env, "output_file": output_file})
+        if output_file:
+            output_file.write(b"CREATE TABLE t(id int);")
+        from app.drivers.database.base import CommandResult
+
+        return CommandResult(True, 0, "8.4", "", 0.001)
+
+    monkeypatch.setattr("app.drivers.database.mysql.run_command", fake_run)
+    instance = DatabaseInstance(
+        name="mysql",
+        db_type="mysql",
+        host="127.0.0.1",
+        port=3306,
+        username="backup",
+        password_encrypted=encrypt_secret("secret"),
+        database_name="orders",
+        environment="test",
+        tags=[],
+    )
+    driver = MySQLDriver(instance, "secret")
+
+    test_result = driver.test_connection()
+    backup_result = driver.backup(tmp_path)
+
+    assert test_result["ok"] is True
+    assert calls[0]["args"][0] == "mysql"
+    assert calls[0]["env"]["MYSQL_PWD"] == "secret"
+    assert calls[1]["args"][0] == "mysqldump"
+    assert "--single-transaction" in calls[1]["args"]
+    assert backup_result.raw_file.read_text(encoding="utf-8") == "CREATE TABLE t(id int);"
+
+
+def test_postgresql_driver_uses_pgpassword_and_restore_file(monkeypatch):
+    calls = []
+
+    def fake_run(args, *, env=None, input_file=None, output_file=None, timeout_seconds=21600):
+        calls.append({"args": args, "env": env})
+        from app.drivers.database.base import CommandResult
+
+        return CommandResult(True, 0, "PostgreSQL 16", "", 0.001)
+
+    monkeypatch.setattr("app.drivers.database.postgresql.run_command", fake_run)
+    instance = DatabaseInstance(
+        name="postgres",
+        db_type="postgresql",
+        host="127.0.0.1",
+        port=5432,
+        username="backup",
+        password_encrypted=encrypt_secret("secret"),
+        database_name="reports",
+        environment="test",
+        tags=[],
+    )
+    driver = PostgreSQLDriver(instance, "secret")
+
+    result = driver.restore(Path("backup.sql"))
+
+    assert result.ok is True
+    assert calls[0]["args"][0] == "psql"
+    assert "--file" in calls[0]["args"]
+    assert calls[0]["env"]["PGPASSWORD"] == "secret"
+
