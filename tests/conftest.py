@@ -15,11 +15,13 @@ os.environ["DBVAULT_SCHEDULER_ENABLED"] = "false"
 os.environ["DBVAULT_INITIAL_ADMIN_PASSWORD"] = "admin123456789"
 
 from app.core.database import Base, engine  # noqa: E402
+from app.drivers.bootstrap import register_builtin_drivers  # noqa: E402
 from app.main import app  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def reset_database():
+    register_builtin_drivers()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
