@@ -69,8 +69,11 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
         task.stdout_tail = backup_result.stdout_tail
         task.stderr_tail = backup_result.stderr_tail
         db.commit()
-        if backup_result.stderr_tail and not backup_result.raw_file.exists():
-            raise AppError("BACKUP_COMMAND_FAILED", backup_result.stderr_tail, status_code=500)
+        if not backup_result.ok:
+            message = backup_result.stderr_tail or f"Backup command failed with {backup_result.returncode}"
+            raise AppError("BACKUP_COMMAND_FAILED", message, status_code=500)
+        if not backup_result.raw_file.exists():
+            raise AppError("BACKUP_COMMAND_FAILED", "Backup command produced no output file", status_code=500)
 
         compression_name = task.config.get("compression", "zstd")
         task.phase = "COMPRESSING"

@@ -48,6 +48,8 @@ class PostgreSQLDriver(BackupDriver):
         with target.open("wb") as output:
             result = run_command(args, env=self._env(), output_file=output, timeout_seconds=timeout_seconds)
         return BackupResult(
+            ok=result.ok,
+            returncode=result.returncode,
             raw_file=target,
             file_format="sql",
             stdout_tail=result.stdout_tail,
@@ -58,4 +60,3 @@ class PostgreSQLDriver(BackupDriver):
     def restore(self, backup_file: Path, timeout_seconds: int = 21600):
         args = ["psql", *self._conn_args(), "--file", str(backup_file)]
         return run_command(args, env=self._env(), timeout_seconds=timeout_seconds)
-

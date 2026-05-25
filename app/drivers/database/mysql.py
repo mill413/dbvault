@@ -59,6 +59,8 @@ class MySQLDriver(BackupDriver):
         with target.open("wb") as output:
             result = run_command(args, env=self._env(), output_file=output, timeout_seconds=timeout_seconds)
         return BackupResult(
+            ok=result.ok,
+            returncode=result.returncode,
             raw_file=target,
             file_format="sql",
             stdout_tail=result.stdout_tail,
@@ -76,4 +78,3 @@ class MySQLDriver(BackupDriver):
 
 class MariaDBDriver(MySQLDriver):
     db_type = "mariadb"
-

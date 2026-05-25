@@ -16,6 +16,8 @@ class CommandResult:
 
 @dataclass
 class BackupResult:
+    ok: bool
+    returncode: int
     raw_file: Path
     file_format: str
     stdout_tail: str
@@ -47,4 +49,3 @@ def tail_text(value: bytes, limit: int = 8000) -> str:
 
 def elapsed_since(start: float) -> float:
     return round(monotonic() - start, 3)
-

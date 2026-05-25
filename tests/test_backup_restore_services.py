@@ -17,6 +17,8 @@ class FakeMySQLDriver:
         target = output_dir / "orders.sql"
         target.write_text("CREATE TABLE orders(id int);\n", encoding="utf-8")
         return BackupResult(
+            ok=True,
+            returncode=0,
             raw_file=target,
             file_format="sql",
             stdout_tail="",
@@ -95,4 +97,3 @@ def test_restore_run_validates_checksum_and_uses_driver(client, admin_headers, t
     task = client.get(f"/api/v1/restore-tasks/{task_id}", headers=admin_headers)
     assert task.json()["status"] == "SUCCESS"
     assert task.json()["stdout_tail"] == "restored"
-

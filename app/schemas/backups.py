@@ -71,3 +71,9 @@ class VerifyResponse(BaseModel):
     expected_sha256: str
     actual_sha256: str
 
+
+class LifecycleCleanupResponse(BaseModel):
+    dry_run: bool
+    candidate_count: int
+    deleted_backup_ids: list[int]
+    failed: list[dict]

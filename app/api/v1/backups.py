@@ -15,6 +15,7 @@ from app.schemas.backups import (
     BackupRunRequest,
     BackupTaskRead,
     BackupUploadResponse,
+    LifecycleCleanupResponse,
     TaskCreatedResponse,
     VerifyResponse,
 )
@@ -26,6 +27,7 @@ from app.services.backup_service import (
     upload_backup_file,
     verify_backup,
 )
+from app.services.lifecycle_service import run_lifecycle_cleanup
 from app.services.storage_service import build_storage_driver
 
 router = APIRouter()
@@ -90,6 +92,15 @@ def upload_backup(
         request=request,
     )
     return {"backup_id": backup.id, "status": backup.status}
+
+
+@router.post("/backups/lifecycle/run", response_model=LifecycleCleanupResponse)
+def run_lifecycle_cleanup_endpoint(
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("backup:delete")),
+):
+    return run_lifecycle_cleanup(db, dry_run=dry_run)
 
 
 @router.get("/backups", response_model=Page[BackupRead])
