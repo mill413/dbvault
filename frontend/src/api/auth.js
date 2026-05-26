@@ -4,6 +4,10 @@ export function login(data) {
   return api.post('/auth/login', data)
 }
 
+export function refreshToken(data) {
+  return api.post('/auth/refresh', data)
+}
+
 export function logout() {
   return api.post('/auth/logout')
 }

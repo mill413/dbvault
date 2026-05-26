@@ -50,6 +50,24 @@ const routes = [
         component: () => import('../views/Audit.vue'),
         meta: { title: '审计日志' },
       },
+      {
+        path: 'restores',
+        name: 'Restores',
+        component: () => import('../views/Restores.vue'),
+        meta: { title: '恢复管理' },
+      },
+      {
+        path: 'alerts',
+        name: 'Alerts',
+        component: () => import('../views/Alerts.vue'),
+        meta: { title: '告警管理' },
+      },
+      {
+        path: 'users',
+        name: 'Users',
+        component: () => import('../views/Users.vue'),
+        meta: { title: '用户管理' },
+      },
     ],
   },
 ]

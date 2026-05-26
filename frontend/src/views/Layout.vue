@@ -35,6 +35,18 @@
           <el-icon><Document /></el-icon>
           <span>审计日志</span>
         </el-menu-item>
+        <el-menu-item index="/restores">
+          <el-icon><Download /></el-icon>
+          <span>恢复管理</span>
+        </el-menu-item>
+        <el-menu-item index="/alerts">
+          <el-icon><Warning /></el-icon>
+          <span>告警管理</span>
+        </el-menu-item>
+        <el-menu-item index="/users">
+          <el-icon><UserFilled /></el-icon>
+          <span>用户管理</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 

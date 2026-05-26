@@ -12,6 +12,14 @@ export function runBackup(data) {
   return api.post('/backups/run', data)
 }
 
+export function uploadBackup(data) {
+  return api.post('/backups/upload', data)
+}
+
+export function runLifecycle() {
+  return api.post('/backups/lifecycle/run')
+}
+
 export function deleteBackup(id) {
   return api.delete(`/backups/${id}`)
 }
@@ -30,6 +38,10 @@ export function getBackupTasks(params) {
 
 export function getBackupTask(id) {
   return api.get(`/backup-tasks/${id}`)
+}
+
+export function getBackupTaskEvents(id) {
+  return api.get(`/backup-tasks/${id}/events`)
 }
 
 export function cancelBackupTask(id) {
