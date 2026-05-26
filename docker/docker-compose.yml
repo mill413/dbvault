@@ -1,6 +1,8 @@
 services:
   api:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       DBVAULT_ENV: dev
@@ -10,7 +12,7 @@ services:
       DBVAULT_BACKUP_TMP_DIR: /var/lib/dbvault/tmp
       DBVAULT_LOCAL_STORAGE_ROOT: /var/lib/dbvault/backups
     volumes:
-      - .:/app
+      - ..:/app
       - dbvault-data:/var/lib/dbvault
     ports:
       - "8000:8000"
@@ -18,6 +20,21 @@ services:
       - postgres
       - redis
       - minio
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    command: npm run dev -- --host 0.0.0.0
+    environment:
+      VITE_API_PROXY_TARGET: http://api:8000
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:3000"
+    depends_on:
+      - api
 
   postgres:
     image: postgres:16
