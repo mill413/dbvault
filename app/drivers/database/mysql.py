@@ -49,7 +49,7 @@ class MySQLDriver(BackupDriver):
             "--triggers",
             "--events",
             "--hex-blob",
-            "--set-gtid-purged=OFF",
+            # "--set-gtid-purged=OFF",
         ]
         if self.instance.database_name:
             args += ["--databases", self.instance.database_name]
