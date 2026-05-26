@@ -15,3 +15,5 @@ build/
 *.egg-info/
 dbvault_tmp/
 dbvault_backups/
+
+frontend/node_modules/

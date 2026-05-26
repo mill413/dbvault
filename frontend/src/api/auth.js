@@ -1,0 +1,17 @@
+import api from './request'
+
+export function login(data) {
+  return api.post('/auth/login', data)
+}
+
+export function logout() {
+  return api.post('/auth/logout')
+}
+
+export function getCurrentUser() {
+  return api.get('/auth/me')
+}
+
+export function changePassword(data) {
+  return api.post('/auth/change-password', data)
+}
