@@ -7,7 +7,7 @@ WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        default-mysql-client \
+        mariadb-client-compat \
         postgresql-client \
         zstd \
     && rm -rf /var/lib/apt/lists/*
