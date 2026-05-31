@@ -52,7 +52,11 @@
             </div>
           </template>
           <el-table :data="recentBackups" style="width: 100%" size="default">
-            <el-table-column prop="database.name" :label="$t('dashboard.database')" />
+            <el-table-column :label="$t('dashboard.database')">
+              <template #default="{ row }">
+                {{ databaseMap[row.database_id] || `DB #${row.database_id}` }}
+              </template>
+            </el-table-column>
             <el-table-column prop="status" :label="$t('common.status')" width="120">
               <template #default="{ row }">
                 <el-tag :type="getStatusType(row.status)" size="small" effect="light">{{ row.status }}</el-tag>
@@ -78,7 +82,7 @@
             <el-table-column prop="title" :label="$t('dashboard.title')" show-overflow-tooltip />
             <el-table-column prop="severity" :label="$t('dashboard.severity')" width="100">
               <template #default="{ row }">
-                <el-tag :type="getSeverityType(row.severity)" size="small" effect="dark">{{ row.severity }}</el-tag>
+                <el-tag :type="getSeverityType(row.severity)" size="small" effect="dark">{{ $t(`alert.severity${row.severity?.toUpperCase()}`) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column :label="$t('common.time')" width="160">
@@ -100,10 +104,13 @@ import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import { getDashboardSummary, getBackupTrends, getAlerts, getStorageUsage } from '../api/common'
 import { getBackups } from '../api/backups'
+import { getDatabases } from '../api/databases'
+import { useAuthStore } from '../stores/auth'
 
 const stats = ref({})
 const recentBackups = ref([])
 const recentAlerts = ref([])
+const databaseMap = ref({})
 const trendChartRef = ref(null)
 const { t } = useI18n()
 const storageChartRef = ref(null)
@@ -124,7 +131,7 @@ const formatTime = (date) => {
 }
 
 const getStatusType = (status) => {
-  const map = { COMPLETED: 'success', RUNNING: 'warning', FAILED: 'danger', PENDING: 'info', SUCCESS: 'success' }
+  const map = { COMPLETED: 'success', RUNNING: 'warning', FAILED: 'danger', PENDING: 'info', SUCCESS: 'success', AVAILABLE: 'success', EXPIRED: 'info', IN_PROGRESS: 'warning' }
   return map[status] || 'info'
 }
 
@@ -201,40 +208,51 @@ onMounted(async () => {
   try {
     const summaryRes = await getDashboardSummary()
     stats.value = summaryRes.data || {}
-    
-    
+  } catch {
+    stats.value = {}
+  }
 
+  try {
     const backupsRes = await getBackups({ page: 1, page_size: 5 })
     recentBackups.value = backupsRes.data.items || []
+  } catch {
+    recentBackups.value = []
+  }
 
+  try {
+    const dbsRes = await getDatabases({ page_size: 999 })
+    const dbs = dbsRes.data.items || []
+    const map = {}
+    dbs.forEach(db => { map[db.id] = db.name })
+    databaseMap.value = map
+  } catch {
+    databaseMap.value = {}
+  }
+
+  try {
+    const alertsRes = await getAlerts({ page: 1, page_size: 5, status: 'OPEN' })
+    recentAlerts.value = alertsRes.data.items || []
+  } catch {
+    recentAlerts.value = []
+  }
+
+  nextTick(async () => {
     try {
-      const alertsRes = await getAlerts({ page: 1, page_size: 5, status: 'OPEN' })
-      recentAlerts.value = alertsRes.data.items || []
+      const trendRes = await getBackupTrends()
+      initTrendChart(trendRes.data || [])
     } catch {
-      recentAlerts.value = []
+      initTrendChart([])
     }
 
-    // Load chart data
-    nextTick(async () => {
-      try {
-        const trendRes = await getBackupTrends()
-        initTrendChart(trendRes.data || [])
-      } catch {
-        initTrendChart([])
-      }
-      
-      try {
-        const storageRes = await getStorageUsage()
-        initStorageChart(storageRes.data || [])
-      } catch {
-        initStorageChart([])
-      }
-    })
+    try {
+      const storageRes = await getStorageUsage()
+      initStorageChart(storageRes.data || [])
+    } catch {
+      initStorageChart([])
+    }
+  })
 
-    window.addEventListener('resize', handleResize)
-  } catch (error) {
-    console.error('Failed to load dashboard:', error)
-  }
+  window.addEventListener('resize', handleResize)
 })
 
 const handleResize = () => {
