@@ -4,14 +4,26 @@
       <template #header>
         <div class="card-header">
           <span>用户管理</span>
-          <el-button type="primary" @click="showCreateDialog">
-            <el-icon><Plus /></el-icon>
-            新增用户
-          </el-button>
+          <div class="header-filters">
+            <el-input v-model="searchUsername" placeholder="搜索用户名" clearable style="width: 180px" />
+            <el-select v-model="filterRole" placeholder="角色筛选" clearable style="width: 130px">
+              <el-option label="Admin" value="Admin" />
+              <el-option label="Operator" value="Operator" />
+              <el-option label="Viewer" value="Viewer" />
+            </el-select>
+            <el-select v-model="filterStatus" placeholder="状态筛选" clearable style="width: 130px">
+              <el-option label="ACTIVE" value="ACTIVE" />
+              <el-option label="DISABLED" value="DISABLED" />
+            </el-select>
+            <el-button type="primary" @click="showCreateDialog">
+              <el-icon><Plus /></el-icon>
+              新增用户
+            </el-button>
+          </div>
         </div>
       </template>
 
-      <el-table :data="users" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredUsers" v-loading="loading" style="width: 100%">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="username" label="用户名" width="120" />
         <el-table-column prop="display_name" label="显示名称" width="150" />
@@ -26,8 +38,16 @@
             <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'danger'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="last_login_at" label="最后登录" width="180" />
-        <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column label="最后登录" width="180">
+          <template #default="{ row }">
+            {{ formatTime(row.last_login_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">
+            {{ formatTime(row.created_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="showEditDialog(row)">编辑</el-button>
@@ -101,7 +121,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
+import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUsers, createUser, updateUser, deleteUser, resetPassword } from '../api/users'
 
@@ -118,6 +139,9 @@ const currentUser = ref(null)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const searchUsername = ref('')
+const filterRole = ref('')
+const filterStatus = ref('')
 
 const form = reactive({
   id: null,
@@ -147,6 +171,26 @@ const getRoleType = (role) => {
   const map = { Admin: 'danger', Operator: 'warning', Viewer: 'info' }
   return map[role] || 'info'
 }
+
+const formatTime = (date) => {
+  if (!date) return '-'
+  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
+}
+
+const filteredUsers = computed(() => {
+  let result = users.value
+  if (searchUsername.value) {
+    const keyword = searchUsername.value.toLowerCase()
+    result = result.filter((u) => (u.username || '').toLowerCase().includes(keyword))
+  }
+  if (filterRole.value) {
+    result = result.filter((u) => u.role === filterRole.value)
+  }
+  if (filterStatus.value) {
+    result = result.filter((u) => u.status === filterStatus.value)
+  }
+  return result
+})
 
 const fetchData = async () => {
   loading.value = true
@@ -252,5 +296,11 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
+}
+
+.header-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 </style>

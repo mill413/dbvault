@@ -4,14 +4,21 @@
       <template #header>
         <div class="card-header">
           <span>定时任务列表</span>
-          <el-button type="primary" @click="showCreateDialog">
-            <el-icon><Plus /></el-icon>
-            新增任务
-          </el-button>
+          <div class="header-filters">
+            <el-input v-model="searchName" placeholder="搜索任务名称" clearable style="width: 180px" />
+            <el-select v-model="filterEnabled" placeholder="启用状态" clearable style="width: 120px">
+              <el-option label="启用" :value="true" />
+              <el-option label="停用" :value="false" />
+            </el-select>
+            <el-button type="primary" @click="showCreateDialog">
+              <el-icon><Plus /></el-icon>
+              新增任务
+            </el-button>
+          </div>
         </div>
       </template>
 
-      <el-table :data="jobs" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredJobs" v-loading="loading" style="width: 100%">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="name" label="任务名称" />
         <el-table-column label="数据库">
@@ -107,7 +114,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
+import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getJobs, createJob, updateJob, deleteJob, enableJob, disableJob } from '../api/jobs'
 import { getDatabases } from '../api/databases'
@@ -122,6 +130,8 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
 const formRef = ref(null)
+const searchName = ref('')
+const filterEnabled = ref(null)
 
 const form = reactive({
   name: '',
@@ -165,8 +175,20 @@ const getStorageName = (id) => {
 
 const formatDate = (date) => {
   if (!date) return '-'
-  return new Date(date).toLocaleString('zh-CN')
+  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
 }
+
+const filteredJobs = computed(() => {
+  let result = jobs.value
+  if (searchName.value) {
+    const keyword = searchName.value.toLowerCase()
+    result = result.filter((job) => job.name.toLowerCase().includes(keyword))
+  }
+  if (filterEnabled.value !== null && filterEnabled.value !== '') {
+    result = result.filter((job) => job.enabled === filterEnabled.value)
+  }
+  return result
+})
 
 const fetchData = async () => {
   loading.value = true
@@ -304,5 +326,11 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
+}
+
+.header-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 </style>
