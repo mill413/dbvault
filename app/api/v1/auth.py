@@ -1,11 +1,14 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.core.errors import AppError
+from app.core.security import hash_password
 from app.models import User
-from app.schemas.auth import ChangePasswordRequest, LoginRequest, RefreshRequest, TokenResponse
+from app.schemas.auth import ChangePasswordRequest, LoginRequest, RefreshRequest, RegisterRequest, TokenResponse
 from app.schemas.common import Message
 from app.schemas.users import UserRead
 from app.services.audit_service import create_audit_log
@@ -36,6 +39,37 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
         raise
     create_audit_log(db, user=user, action="auth.login", request=request)
     return build_token_response(user)
+
+
+@router.post("/register", response_model=UserRead)
+def register(payload: RegisterRequest, request: Request, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.username == payload.username).first()
+    if existing:
+        raise AppError("VALIDATION_ERROR", "Username already exists", status_code=409)
+    if payload.email:
+        existing_email = db.query(User).filter(User.email == payload.email).first()
+        if existing_email:
+            raise AppError("VALIDATION_ERROR", "Email already registered", status_code=409)
+    user = User(
+        username=payload.username,
+        password_hash=hash_password(payload.password),
+        display_name=payload.display_name,
+        email=payload.email,
+        role="Viewer",
+        status="ACTIVE",
+        password_changed_at=datetime.now(UTC),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    create_audit_log(
+        db,
+        user=user,
+        action="auth.register",
+        request=request,
+        metadata={"username": payload.username},
+    )
+    return user
 
 
 @router.post("/refresh", response_model=TokenResponse)
