@@ -112,6 +112,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getBackups, runBackup, deleteBackup, verifyBackup, downloadBackup } from '../api/backups'
 import { getDatabases } from '../api/databases'
 import { getStorages } from '../api/storages'
+import { formatBytes as formatSize } from '../utils/format'
 
 const backups = ref([])
 const databases = ref([])
@@ -157,18 +158,6 @@ const getStorageName = (id) => {
 const formatTime = (date) => {
   if (!date) return '-'
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
-}
-
-const formatSize = (bytes) => {
-  if (!bytes) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let i = 0
-  let size = bytes
-  while (size >= 1024 && i < units.length - 1) {
-    size /= 1024
-    i++
-  }
-  return `${size.toFixed(2)} ${units[i]}`
 }
 
 const fetchData = async () => {

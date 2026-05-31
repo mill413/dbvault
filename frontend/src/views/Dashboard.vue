@@ -126,6 +126,7 @@ import * as echarts from 'echarts'
 import { getDashboardSummary, getBackupTrends, getAlerts, getStorageUsage } from '../api/common'
 import { getBackups } from '../api/backups'
 import { getAllStorageCapacity } from '../api/storages'
+import { formatBytes } from '../utils/format'
 
 const stats = ref({})
 const recentBackups = ref([])
@@ -134,14 +135,6 @@ const trendChartRef = ref(null)
 const { t } = useI18n()
 const storageChartRef = ref(null)
 const storageCapacityList = ref([])
-
-const formatBytes = (bytes) => {
-  if (!bytes) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
 
 let trendChart = null
 let storageChart = null
