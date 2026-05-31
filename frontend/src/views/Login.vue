@@ -36,23 +36,38 @@
             </el-button>
           </el-form-item>
         </el-form>
+        <div v-if="registrationEnabled" class="register-link">
+          {{ $t('login.noAccount') }}
+          <router-link to="/register">{{ $t('login.register') }}</router-link>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
+import { getPublicConfig } from '../api/auth'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const formRef = ref(null)
 const loading = ref(false)
+const registrationEnabled = ref(false)
 const { t } = useI18n()
+
+onMounted(async () => {
+  try {
+    const res = await getPublicConfig()
+    registrationEnabled.value = res.data.registration_enabled === true
+  } catch {
+    registrationEnabled.value = false
+  }
+})
 
 const form = reactive({
   username: '',
@@ -197,5 +212,22 @@ const handleLogin = async () => {
 
 :deep(.el-input__inner) {
   height: 48px;
+}
+
+.register-link {
+  text-align: center;
+  margin-top: 20px;
+  color: #a1a5b7;
+  font-size: 14px;
+}
+
+.register-link a {
+  color: var(--el-color-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.register-link a:hover {
+  text-decoration: underline;
 }
 </style>

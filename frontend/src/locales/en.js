@@ -27,7 +27,8 @@ export default {
     details: 'Details',
     updateSuccess: 'Updated successfully',
     createSuccess: 'Created successfully',
-    deleteSuccess: 'Deleted successfully'
+    deleteSuccess: 'Deleted successfully',
+    accessDenied: 'Access denied. You do not have permission to view this page.'
   },
   login: {
     title: 'Secure. Reliable. Database Management.',
@@ -54,7 +55,15 @@ export default {
     usernamePlaceholder: 'Enter username',
     displayNamePlaceholder: 'Enter display name',
     emailPlaceholder: 'Enter email',
-    passwordMismatch: 'Passwords do not match'
+    passwordMismatch: 'Passwords do not match',
+    usernameLabel: 'Username',
+    displayNameLabel: 'Display Name',
+    emailLabel: 'Email',
+    passwordLabel: 'Password',
+    confirmPasswordLabel: 'Confirm Password',
+    passwordHint: 'At least 12 characters',
+    optional: 'Optional',
+    required: 'Required'
   },
   dashboard: {
     totalDatabases: 'Total Databases',

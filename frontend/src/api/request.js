@@ -18,7 +18,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const silent = error.config?.silent === true
+    const method = (error.config?.method || 'get').toLowerCase()
+    const silent = error.config?.silent === true || method === 'get'
     if (error.response) {
       const { status, data } = error.response
       if (status === 401) {
@@ -27,7 +28,7 @@ api.interceptors.response.use(
         router.push('/login')
         if (!silent) ElMessage.warning('Session expired. Please sign in again.')
       } else if (status === 403) {
-        if (!silent) ElMessage.error('Access Denied: Insufficient permissions.')
+        ElMessage.error('Access Denied: Insufficient permissions.')
       } else {
         if (!silent) ElMessage.error(data?.error?.message || data?.detail || 'Operation failed. Please try again.')
       }
