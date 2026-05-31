@@ -1,12 +1,13 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from sqlalchemy import Date, func
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
 from app.core.database import get_db
-from app.models import Backup, BackupTask, DatabaseInstance, Storage, User
+from app.models import Alert, Backup, BackupTask, DatabaseInstance, Job, Storage, User
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -21,6 +22,8 @@ def dashboard_summary(
         "database_count": db.query(DatabaseInstance).filter(DatabaseInstance.deleted_at.is_(None)).count(),
         "storage_count": db.query(Storage).filter(Storage.deleted_at.is_(None)).count(),
         "backup_count": db.query(Backup).filter(Backup.deleted_at.is_(None)).count(),
+        "job_count": db.query(Job).filter(Job.deleted_at.is_(None), Job.enabled.is_(True)).count(),
+        "alert_count": db.query(Alert).filter(Alert.status == "OPEN").count(),
         "backup_success_24h": db.query(BackupTask)
         .filter(BackupTask.status == "SUCCESS", BackupTask.created_at >= today)
         .count(),
@@ -38,13 +41,36 @@ def backup_trends(
 ):
     since = datetime.now(UTC) - timedelta(days=days)
     rows = (
-        db.query(func.date(Backup.created_at).label("date"), Backup.status, func.count(Backup.id))
-        .filter(Backup.created_at >= since)
-        .group_by(func.date(Backup.created_at), Backup.status)
-        .order_by(func.date(Backup.created_at).asc())
+        db.query(
+            BackupTask.created_at.cast(Date).label("day"),
+            BackupTask.status,
+            func.count(BackupTask.id),
+        )
+        .filter(BackupTask.created_at >= since)
+        .group_by(BackupTask.created_at.cast(Date), BackupTask.status)
+        .order_by(BackupTask.created_at.cast(Date).asc())
         .all()
     )
-    return [{"date": str(date), "status": status, "count": count} for date, status, count in rows]
+
+    grouped: dict[str, dict] = defaultdict(lambda: {"success_count": 0, "failed_count": 0})
+    for d, status, count in rows:
+        key = str(d)
+        if status == "SUCCESS":
+            grouped[key]["success_count"] = count
+        elif status == "FAILED":
+            grouped[key]["failed_count"] = count
+
+    all_dates: set[str] = set()
+    for i in range(days):
+        all_dates.add(str(date.today() - timedelta(days=i)))
+    for d in all_dates:
+        if d not in grouped:
+            grouped[d] = {"success_count": 0, "failed_count": 0}
+
+    return [
+        {"date": d, **counts}
+        for d, counts in sorted(grouped.items())
+    ]
 
 
 @router.get("/storage-usage")
@@ -53,13 +79,13 @@ def storage_usage(
     _: User = Depends(require_permission("backup:read")),
 ):
     rows = (
-        db.query(Backup.storage_id, func.count(Backup.id), func.coalesce(func.sum(Backup.size_bytes), 0))
-        .filter(Backup.deleted_at.is_(None))
-        .group_by(Backup.storage_id)
+        db.query(Storage.name, func.count(Backup.id), func.coalesce(func.sum(Backup.size_bytes), 0))
+        .outerjoin(Backup, Backup.storage_id == Storage.id)
+        .filter(Storage.deleted_at.is_(None))
+        .group_by(Storage.id, Storage.name)
         .all()
     )
     return [
-        {"storage_id": storage_id, "backup_count": backup_count, "size_bytes": size_bytes}
-        for storage_id, backup_count, size_bytes in rows
+        {"storage_name": storage_name, "backup_count": backup_count, "used_bytes": used_bytes}
+        for storage_name, backup_count, used_bytes in rows
     ]
-

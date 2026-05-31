@@ -48,7 +48,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import dayjs from 'dayjs'
 import { getAuditLogs } from '../api/common'
 
