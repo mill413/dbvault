@@ -4,10 +4,23 @@
       <template #header>
         <div class="card-header">
           <span>数据库实例列表</span>
-          <el-button type="primary" @click="showCreateDialog">
-            <el-icon><Plus /></el-icon>
-            新增实例
-          </el-button>
+          <div class="header-filters">
+            <el-input v-model="searchName" placeholder="搜索实例名称" clearable style="width: 180px" @input="fetchData" />
+            <el-select v-model="filterDbType" placeholder="数据库类型" clearable style="width: 140px" @change="fetchData">
+              <el-option label="MySQL" value="mysql" />
+              <el-option label="PostgreSQL" value="postgresql" />
+              <el-option label="MariaDB" value="mariadb" />
+            </el-select>
+            <el-select v-model="filterEnv" placeholder="环境" clearable style="width: 120px" @change="fetchData">
+              <el-option label="生产" value="prod" />
+              <el-option label="测试" value="test" />
+              <el-option label="开发" value="dev" />
+            </el-select>
+            <el-button type="primary" @click="showCreateDialog">
+              <el-icon><Plus /></el-icon>
+              新增实例
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -21,6 +34,11 @@
         </el-table-column>
         <el-table-column prop="host" label="主机" />
         <el-table-column prop="port" label="端口" width="80" />
+        <el-table-column prop="database_name" label="数据库名" width="120">
+          <template #default="{ row }">
+            {{ row.database_name || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="environment" label="环境" width="100">
           <template #default="{ row }">
             <el-tag :type="getEnvType(row.environment)" size="small">{{ row.environment }}</el-tag>
@@ -116,6 +134,9 @@ const formRef = ref(null)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const searchName = ref('')
+const filterDbType = ref('')
+const filterEnv = ref('')
 
 const form = reactive({
   name: '',
@@ -147,8 +168,20 @@ const getEnvType = (env) => {
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await getDatabases({ page: page.value, page_size: pageSize.value })
-    databases.value = response.data.items || []
+    const params = { page: page.value, page_size: pageSize.value }
+    if (filterDbType.value) {
+      params.db_type = filterDbType.value
+    }
+    if (filterEnv.value) {
+      params.environment = filterEnv.value
+    }
+    const response = await getDatabases(params)
+    let items = response.data.items || []
+    if (searchName.value) {
+      const keyword = searchName.value.toLowerCase()
+      items = items.filter((item) => item.name.toLowerCase().includes(keyword))
+    }
+    databases.value = items
     total.value = response.data.total || 0
   } catch (error) {
     console.error('Failed to fetch databases:', error)
@@ -246,5 +279,11 @@ onMounted(fetchData)
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
+}
+
+.header-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 </style>

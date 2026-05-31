@@ -71,7 +71,11 @@
                 <el-tag :type="getStatusType(row.status)" size="small">{{ row.status }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" label="时间" width="180" />
+            <el-table-column label="时间" width="180">
+              <template #default="{ row }">
+                {{ formatTime(row.created_at) }}
+              </template>
+            </el-table-column>
           </el-table>
         </el-card>
       </el-col>
@@ -104,12 +108,18 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import dayjs from 'dayjs'
 import { getDashboardSummary, getBackupTrends, getAlerts } from '../api/common'
 import { getBackups } from '../api/backups'
 
 const stats = ref({})
 const recentBackups = ref([])
 const recentAlerts = ref([])
+
+const formatTime = (date) => {
+  if (!date) return '-'
+  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
+}
 
 const getStatusType = (status) => {
   const map = { COMPLETED: 'success', RUNNING: 'warning', FAILED: 'danger', PENDING: 'info', SUCCESS: 'success' }

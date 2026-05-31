@@ -4,14 +4,24 @@
       <template #header>
         <div class="card-header">
           <span>存储管理</span>
-          <el-button type="primary" @click="showCreateDialog">
-            <el-icon><Plus /></el-icon>
-            新增存储
-          </el-button>
+          <div class="header-filters">
+            <el-select v-model="filterType" placeholder="存储类型" clearable style="width: 140px">
+              <el-option label="本地存储" value="local" />
+              <el-option label="S3" value="s3" />
+            </el-select>
+            <el-select v-model="filterStatus" placeholder="状态筛选" clearable style="width: 120px">
+              <el-option label="ACTIVE" value="ACTIVE" />
+              <el-option label="INACTIVE" value="INACTIVE" />
+            </el-select>
+            <el-button type="primary" @click="showCreateDialog">
+              <el-icon><Plus /></el-icon>
+              新增存储
+            </el-button>
+          </div>
         </div>
       </template>
 
-      <el-table :data="storages" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredStorages" v-loading="loading" style="width: 100%">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="name" label="存储名称" />
         <el-table-column prop="storage_type" label="类型" width="120">
@@ -89,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStorages, createStorage, updateStorage, deleteStorage, testStorage as testStorageApi } from '../api/storages'
 
@@ -100,6 +110,8 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
 const formRef = ref(null)
+const filterType = ref('')
+const filterStatus = ref('')
 
 const form = reactive({
   name: '',
@@ -116,6 +128,17 @@ const rules = {
 const onTypeChange = () => {
   form.config = {}
 }
+
+const filteredStorages = computed(() => {
+  let result = storages.value
+  if (filterType.value) {
+    result = result.filter((s) => s.storage_type === filterType.value)
+  }
+  if (filterStatus.value) {
+    result = result.filter((s) => s.status === filterStatus.value)
+  }
+  return result
+})
 
 const fetchData = async () => {
   loading.value = true
@@ -206,5 +229,11 @@ onMounted(fetchData)
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
+}
+
+.header-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 </style>

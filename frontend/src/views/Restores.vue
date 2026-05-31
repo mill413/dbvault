@@ -4,10 +4,19 @@
       <template #header>
         <div class="card-header">
           <span>恢复管理</span>
-          <el-button type="primary" @click="showRestoreDialog">
-            <el-icon><Download /></el-icon>
-            恢复备份
-          </el-button>
+          <div class="header-filters">
+            <el-select v-model="filterStatus" placeholder="状态筛选" clearable style="width: 140px" @change="fetchData">
+              <el-option label="完成" value="COMPLETED" />
+              <el-option label="运行中" value="RUNNING" />
+              <el-option label="失败" value="FAILED" />
+              <el-option label="待处理" value="PENDING" />
+              <el-option label="已取消" value="CANCELLED" />
+            </el-select>
+            <el-button type="primary" @click="showRestoreDialog">
+              <el-icon><Download /></el-icon>
+              恢复备份
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -37,7 +46,11 @@
             {{ row.duration_seconds ? row.duration_seconds.toFixed(1) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">
+            {{ formatTime(row.created_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="showEvents(row)">详情</el-button>
@@ -138,7 +151,11 @@
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="event_type" label="事件类型" width="120" />
           <el-table-column prop="message" label="消息" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="created_at" label="时间" width="180" />
+          <el-table-column label="时间" width="180">
+          <template #default="{ row }">
+            {{ formatTime(row.created_at) }}
+          </template>
+        </el-table-column>
         </el-table>
       </div>
     </el-dialog>
@@ -147,6 +164,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { getRestoreTasks, runRestore, getRestoreTaskEvents, dryRunRestore } from '../api/restores'
 import { getDatabases } from '../api/databases'
@@ -168,6 +186,7 @@ const events = ref([])
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const filterStatus = ref('')
 const confirmText = ref('')
 
 const restoreForm = reactive({
@@ -185,6 +204,11 @@ const restoreRules = {
 const getStatusType = (status) => {
   const map = { COMPLETED: 'success', RUNNING: 'warning', FAILED: 'danger', PENDING: 'info', CANCELLED: 'info' }
   return map[status] || 'info'
+}
+
+const formatTime = (date) => {
+  if (!date) return '-'
+  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
 }
 
 const getDatabaseName = (id) => {
@@ -215,7 +239,11 @@ const fetchData = async () => {
   loading.value = true
   try {
     const response = await getRestoreTasks({ page: page.value, page_size: pageSize.value })
-    restoreTasks.value = response.data.items || []
+    let items = response.data.items || []
+    if (filterStatus.value) {
+      items = items.filter((item) => item.status === filterStatus.value)
+    }
+    restoreTasks.value = items
     total.value = response.data.total || 0
   } catch (error) {
     console.error('Failed to fetch restore tasks:', error)
@@ -368,5 +396,11 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
+}
+
+.header-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 </style>

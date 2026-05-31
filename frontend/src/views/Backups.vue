@@ -4,10 +4,22 @@
       <template #header>
         <div class="card-header">
           <span>备份列表</span>
-          <el-button type="primary" @click="showBackupDialog">
-            <el-icon><Upload /></el-icon>
-            立即备份
-          </el-button>
+          <div class="header-filters">
+            <el-select v-model="filterStatus" placeholder="状态筛选" clearable style="width: 140px" @change="fetchData">
+              <el-option label="可用" value="AVAILABLE" />
+              <el-option label="完成" value="COMPLETED" />
+              <el-option label="运行中" value="RUNNING" />
+              <el-option label="失败" value="FAILED" />
+              <el-option label="待处理" value="PENDING" />
+            </el-select>
+            <el-select v-model="filterDatabaseId" placeholder="选择数据库" clearable style="width: 180px" @change="fetchData">
+              <el-option v-for="db in databases" :key="db.id" :label="db.name" :value="db.id" />
+            </el-select>
+            <el-button type="primary" @click="showBackupDialog">
+              <el-icon><Upload /></el-icon>
+              立即备份
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -35,7 +47,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="compression" label="压缩" width="80" />
-        <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">
+            {{ formatTime(row.created_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleVerify(row)" :disabled="row.status !== 'AVAILABLE'">校验</el-button>
@@ -90,6 +106,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getBackups, runBackup, deleteBackup, verifyBackup, downloadBackup } from '../api/backups'
 import { getDatabases } from '../api/databases'
@@ -105,6 +122,8 @@ const backupFormRef = ref(null)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const filterStatus = ref('')
+const filterDatabaseId = ref(null)
 
 const backupForm = reactive({
   database_id: null,
@@ -133,6 +152,11 @@ const getStorageName = (id) => {
   return storage ? storage.name : id
 }
 
+const formatTime = (date) => {
+  if (!date) return '-'
+  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
+}
+
 const formatSize = (bytes) => {
   if (!bytes) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -148,7 +172,14 @@ const formatSize = (bytes) => {
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await getBackups({ page: page.value, page_size: pageSize.value })
+    const params = { page: page.value, page_size: pageSize.value }
+    if (filterStatus.value) {
+      params.status = filterStatus.value
+    }
+    if (filterDatabaseId.value) {
+      params.database_id = filterDatabaseId.value
+    }
+    const response = await getBackups(params)
     backups.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error) {
@@ -243,5 +274,11 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
+}
+
+.header-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 </style>
