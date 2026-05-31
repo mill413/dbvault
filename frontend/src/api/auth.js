@@ -23,3 +23,7 @@ export function getCurrentUser() {
 export function changePassword(data) {
   return api.post('/auth/change-password', data)
 }
+
+export function getPublicConfig() {
+  return api.get('/auth/public-config', { silent: true })
+}

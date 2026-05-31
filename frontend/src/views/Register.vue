@@ -60,16 +60,27 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { register } from '../api/auth'
+import { register, getPublicConfig } from '../api/auth'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const formRef = ref(null)
 const loading = ref(false)
 const { t } = useI18n()
+
+onMounted(async () => {
+  try {
+    const res = await getPublicConfig()
+    if (!res.data.registration_enabled) {
+      router.replace('/login')
+    }
+  } catch {
+    router.replace('/login')
+  }
+})
 
 const form = reactive({
   username: '',

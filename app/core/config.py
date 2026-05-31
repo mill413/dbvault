@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     openapi_enabled: bool = True
     run_background_tasks_inline: bool = False
     scheduler_enabled: bool = True
+    enable_registration: bool = False
     initial_admin_username: str = "admin"
     initial_admin_password: str = Field(default="admin123456789", min_length=12)
 

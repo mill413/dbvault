@@ -9,6 +9,7 @@ services:
       DBVAULT_JWT_SECRET: local-development-secret
       DBVAULT_BACKUP_TMP_DIR: /var/lib/dbvault/tmp
       DBVAULT_LOCAL_STORAGE_ROOT: /var/lib/dbvault/backups
+      DBVAULT_ENABLE_REGISTRATION: "false"
     volumes:
       - ..:/app
       - dbvault-data:/var/lib/dbvault
