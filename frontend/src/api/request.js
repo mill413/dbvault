@@ -24,14 +24,14 @@ api.interceptors.response.use(
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         router.push('/login')
-        ElMessage.error('登录已过期，请重新登录')
+        ElMessage.warning('Session expired. Please sign in again.')
       } else if (status === 403) {
-        ElMessage.error('权限不足')
+        ElMessage.error('Access Denied: Insufficient permissions.')
       } else {
-        ElMessage.error(data?.error?.message || '请求失败')
+        ElMessage.error(data?.error?.message || data?.detail || 'Operation failed. Please try again.')
       }
     } else {
-      ElMessage.error('网络错误')
+      ElMessage.error('Network Error: Unable to connect to the server.')
     }
     return Promise.reject(error)
   }

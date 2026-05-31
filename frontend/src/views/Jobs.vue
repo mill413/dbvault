@@ -12,13 +12,13 @@
             </el-select>
             <el-button type="primary" @click="showCreateDialog">
               <el-icon><Plus /></el-icon>
-              新增任务
+              Add Job
             </el-button>
           </div>
         </div>
       </template>
 
-      <el-table :data="filteredJobs" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredJobs" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="name" label="任务名称" />
         <el-table-column label="数据库">
@@ -54,14 +54,14 @@
         </el-table-column>
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="showEditDialog(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" type="primary" @click="showEditDialog(row)">Edit</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)">Delete</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑任务' : '新增任务'" width="600px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? 'Edit Job' : 'Add Job'" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="任务名称" prop="name">
           <el-input v-model="form.name" />
@@ -106,8 +106,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+        <el-button @click="dialogVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitting">Confirm</el-button>
       </template>
     </el-dialog>
   </div>

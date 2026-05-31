@@ -14,7 +14,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredLogs" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredLogs" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="action" label="操作" width="180" />
         <el-table-column prop="actor_user_id" label="操作人" width="100" />

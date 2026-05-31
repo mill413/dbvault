@@ -14,13 +14,13 @@
             </el-select>
             <el-button type="primary" @click="showRestoreDialog">
               <el-icon><Download /></el-icon>
-              恢复备份
+              Restore Backup
             </el-button>
           </div>
         </div>
       </template>
 
-      <el-table :data="restoreTasks" v-loading="loading" style="width: 100%">
+      <el-table :data="restoreTasks" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="任务ID" width="80" />
         <el-table-column prop="backup_id" label="备份ID" width="100" />
         <el-table-column label="目标数据库" width="150">
@@ -53,7 +53,7 @@
         </el-table-column>
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="showEvents(row)">详情</el-button>
+            <el-button size="small" @click="showEvents(row)">Details</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -70,7 +70,7 @@
       />
     </el-card>
 
-    <el-dialog v-model="restoreDialogVisible" title="恢复备份" width="600px">
+    <el-dialog v-model="restoreDialogVisible" title="Restore Backup" width="600px">
       <el-form :model="restoreForm" :rules="restoreRules" ref="restoreFormRef" label-width="120px">
         <el-form-item label="选择备份" prop="backup_id">
           <el-select v-model="restoreForm.backup_id" filterable placeholder="请选择备份" style="width: 100%">
@@ -112,13 +112,13 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="restoreDialogVisible = false">取消</el-button>
-        <el-button @click="handleDryRun" :loading="dryRunLoading">预检查</el-button>
-        <el-button type="primary" @click="handleRestore" :loading="restoreLoading">开始恢复</el-button>
+        <el-button @click="restoreDialogVisible = false">Cancel</el-button>
+        <el-button @click="handleDryRun" :loading="dryRunLoading">Dry Run</el-button>
+        <el-button type="primary" @click="handleRestore" :loading="restoreLoading">Start Restore</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="confirmDialogVisible" title="确认恢复" width="500px">
+    <el-dialog v-model="confirmDialogVisible" title="Confirm Restore" width="500px">
       <el-alert
         title="高风险操作"
         description="您正在执行原实例恢复操作，这将覆盖目标数据库的所有数据。"
@@ -130,12 +130,12 @@
       <p style="margin-bottom: 10px">请输入 <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px">{{ currentTask?.confirm_required }}</code> 以确认：</p>
       <el-input v-model="confirmText" placeholder="输入确认文本" />
       <template #footer>
-        <el-button @click="confirmDialogVisible = false">取消</el-button>
-        <el-button type="danger" @click="submitRestore" :loading="restoreLoading" :disabled="confirmText !== currentTask?.confirm_required">确认恢复</el-button>
+        <el-button @click="confirmDialogVisible = false">Cancel</el-button>
+        <el-button type="danger" @click="submitRestore" :loading="restoreLoading" :disabled="confirmText !== currentTask?.confirm_required">Confirm Restore</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="eventsDialogVisible" title="任务详情" width="700px">
+    <el-dialog v-model="eventsDialogVisible" title="Task Details" width="700px">
       <el-descriptions :column="2" border>
         <el-descriptions-item label="任务ID">{{ currentTask?.id }}</el-descriptions-item>
         <el-descriptions-item label="备份ID">{{ currentTask?.backup_id }}</el-descriptions-item>
@@ -147,7 +147,7 @@
       </el-descriptions>
       <div style="margin-top: 20px">
         <h4>执行日志</h4>
-        <el-table :data="events" style="width: 100%" max-height="300">
+        <el-table :data="events" style="width: 100%" max-height="300" size="default" empty-text="No data available">
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="event_type" label="事件类型" width="120" />
           <el-table-column prop="message" label="消息" min-width="200" show-overflow-tooltip />

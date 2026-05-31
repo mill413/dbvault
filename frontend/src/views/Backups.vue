@@ -17,7 +17,7 @@
             </el-select>
             <el-button type="primary" @click="showBackupDialog">
               <el-icon><Upload /></el-icon>
-              立即备份
+              Run Backup
             </el-button>
           </div>
         </div>
@@ -73,7 +73,7 @@
       />
     </el-card>
 
-    <el-dialog v-model="backupDialogVisible" title="立即备份" width="500px">
+    <el-dialog v-model="backupDialogVisible" title="Run Backup" width="500px">
       <el-form :model="backupForm" :rules="backupRules" ref="backupFormRef" label-width="100px">
         <el-form-item label="数据库" prop="database_id">
           <el-select v-model="backupForm.database_id" style="width: 100%" placeholder="选择数据库">
@@ -97,8 +97,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="backupDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleBackup" :loading="backupLoading">开始备份</el-button>
+        <el-button @click="backupDialogVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="handleBackup" :loading="backupLoading">Start Backup</el-button>
       </template>
     </el-dialog>
   </div>

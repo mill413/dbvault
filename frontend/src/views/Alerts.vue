@@ -20,7 +20,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredAlerts" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredAlerts" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="title" label="标题" width="200" />
         <el-table-column prop="alert_type" label="类型" width="120" />
@@ -48,7 +48,7 @@
         </el-table-column>
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="handleResolve(row)" :disabled="row.status !== 'OPEN'">解决</el-button>
+            <el-button size="small" type="primary" @click="handleResolve(row)" :disabled="row.status !== 'OPEN'">Resolve</el-button>
           </template>
         </el-table-column>
       </el-table>

@@ -17,13 +17,13 @@
             </el-select>
             <el-button type="primary" @click="showCreateDialog">
               <el-icon><Plus /></el-icon>
-              新增用户
+              Add User
             </el-button>
           </div>
         </div>
       </template>
 
-      <el-table :data="filteredUsers" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredUsers" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="username" label="用户名" width="120" />
         <el-table-column prop="display_name" label="显示名称" width="150" />
@@ -50,9 +50,9 @@
         </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="showEditDialog(row)">编辑</el-button>
-            <el-button size="small" type="warning" @click="showResetPasswordDialog(row)">重置密码</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" @click="showEditDialog(row)">Edit</el-button>
+            <el-button size="small" type="warning" @click="showResetPasswordDialog(row)">Reset Password</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)">Delete</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -69,7 +69,7 @@
       />
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑用户' : '新增用户'" width="500px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? 'Edit User' : 'Add User'" width="500px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" :disabled="isEdit" placeholder="请输入用户名" />
@@ -98,12 +98,12 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+        <el-button @click="dialogVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">Confirm</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="resetPasswordVisible" title="重置密码" width="500px">
+    <el-dialog v-model="resetPasswordVisible" title="Reset Password" width="500px">
       <el-form :model="resetForm" :rules="resetRules" ref="resetFormRef" label-width="100px">
         <el-form-item label="用户">
           <el-input :value="currentUser?.username" disabled />
@@ -113,8 +113,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="resetPasswordVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleResetPassword" :loading="resetLoading">确定</el-button>
+        <el-button @click="resetPasswordVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="handleResetPassword" :loading="resetLoading">Confirm</el-button>
       </template>
     </el-dialog>
   </div>
