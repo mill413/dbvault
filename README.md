@@ -26,7 +26,7 @@ DBVault provides a unified management interface for scheduling, executing, and m
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+| ----- | ---------- |
 | Backend | Python 3.11+, FastAPI, SQLAlchemy 2.0, Alembic |
 | Frontend | Vue 3, Element Plus, ECharts, Pinia, Axios |
 | Database | PostgreSQL (metadata), target DBs (backup sources) |
@@ -108,7 +108,7 @@ alembic revision --autogenerate -m "description"   # Create new migration
 All configuration is managed via environment variables (prefix `DBVAULT_`):
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| -------- | ------- | ----------- |
 | `DBVAULT_DATABASE_URL` | `postgresql+psycopg://dbvault:dbvault@db:5432/dbvault` | Metadata database connection string |
 | `DBVAULT_JWT_SECRET` | *(required)* | Secret key for JWT token signing |
 | `DBVAULT_ENABLE_REGISTRATION` | `false` | Enable/disable user self-registration |
@@ -121,7 +121,7 @@ See [`.env.example`](.env.example) for the complete reference.
 
 ## Project Structure
 
-```
+```text
 dbvault/
 ├── app/                    # Backend application
 │   ├── api/v1/            # REST API endpoints
@@ -162,14 +162,14 @@ ruff check app tests alembic
 
 The development stack includes pre-configured sample databases:
 
-| Database | Host | Port | Database | User | Password |
-|----------|------|------|----------|------|----------|
-| MySQL | localhost | 3306 | `orders` | `backup` | `backup-password` |
+| Database   | Host      | Port  | Database  | User     | Password          |
+| ---------- | --------- | ----- | --------- | -------- | ----------------- |
+| MySQL      | localhost | 3306  | `orders`  | `backup` | `backup-password` |
 | PostgreSQL | localhost | 15432 | `reports` | `backup` | `backup-password` |
 
 ## Architecture
 
-```
+```text
 ┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
 │  Vue 3 Web  │────▶│  FastAPI API  │────▶│   PostgreSQL    │
 │   Frontend  │     │   (Uvicorn)   │     │   (Metadata)    │

@@ -26,7 +26,7 @@ DBVault 提供统一的管理界面，用于调度、执行和监控跨基础设
 ## 技术栈
 
 | 层级 | 技术选型 |
-|------|----------|
+| ---- | -------- |
 | 后端 | Python 3.11+, FastAPI, SQLAlchemy 2.0, Alembic |
 | 前端 | Vue 3, Element Plus, ECharts, Pinia, Axios |
 | 数据库 | PostgreSQL（元数据），目标数据库（备份源） |
@@ -108,7 +108,7 @@ alembic revision --autogenerate -m "description"   # 创建新迁移
 所有配置通过环境变量管理（前缀 `DBVAULT_`）：
 
 | 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| ------ | ------ | ---- |
 | `DBVAULT_DATABASE_URL` | `postgresql+psycopg://dbvault:dbvault@db:5432/dbvault` | 元数据库连接字符串 |
 | `DBVAULT_JWT_SECRET` | *(必填)* | JWT 令牌签名密钥 |
 | `DBVAULT_ENABLE_REGISTRATION` | `false` | 启用/禁用用户自助注册 |
@@ -121,7 +121,7 @@ alembic revision --autogenerate -m "description"   # 创建新迁移
 
 ## 项目结构
 
-```
+```text
 dbvault/
 ├── app/                    # 后端应用
 │   ├── api/v1/            # REST API 端点
@@ -162,14 +162,14 @@ ruff check app tests alembic
 
 开发环境包含预配置的示例数据库：
 
-| 数据库类型 | 主机 | 端口 | 数据库名 | 用户名 | 密码 |
-|-----------|------|------|----------|--------|------|
-| MySQL | localhost | 3306 | `orders` | `backup` | `backup-password` |
-| PostgreSQL | localhost | 15432 | `reports` | `backup` | `backup-password` |
+| 数据库类型   | 主机      | 端口  | 数据库名  | 用户名   | 密码              |
+| ------------ | --------- | ----- | --------- | -------- | ----------------- |
+| MySQL        | localhost | 3306  | `orders`  | `backup` | `backup-password` |
+| PostgreSQL   | localhost | 15432 | `reports` | `backup` | `backup-password` |
 
 ## 架构设计
 
-```
+```text
 ┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
 │  Vue 3 前端  │────▶│  FastAPI API  │────▶│   PostgreSQL    │
 │             │     │   (Uvicorn)   │     │    (元数据库)    │
