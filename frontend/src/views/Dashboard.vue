@@ -268,7 +268,7 @@ onBeforeUnmount(() => {
 
 .stat-label {
   font-size: 14px;
-  color: var(--ctp-subtext0);
+  color: var(--text-muted);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;

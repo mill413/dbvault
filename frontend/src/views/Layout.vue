@@ -61,10 +61,10 @@
           <el-switch
             v-model="isDark"
             inline-prompt
-            active-icon="Moon"
-            inactive-icon="Sunny"
+            :active-icon="Moon"
+            :inactive-icon="Sunny"
             @change="toggleDark"
-            style="margin-right: 24px; --el-switch-on-color: var(--ctp-surface0); --el-switch-off-color: var(--ctp-surface1);"
+            style="margin-right: 24px; --el-switch-on-color: var(--border-color); --el-switch-off-color: var(--border-color);"
           />
           <el-dropdown @command="handleCommand" trigger="click">
             <div class="user-profile">
@@ -98,22 +98,42 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => route.meta.title || '')
 
+const isDark = ref(localStorage.getItem('theme') === 'dark')
+
+const toggleDark = (val) => {
+  if (val) {
+    document.documentElement.classList.add('dark')
+    localStorage.setItem('theme', 'dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+    localStorage.setItem('theme', 'light')
+  }
+}
+
+onMounted(() => {
+  if (isDark.value) {
+    document.documentElement.classList.add('dark')
+  }
+})
+
 const handleCommand = async (command) => {
   if (command === 'logout') {
     await authStore.logout()
-    ElMessage.success('Signed out successfully')
+    ElMessage.success(t('common.signOut') + ' OK')
     router.push('/login')
   }
 }
