@@ -25,9 +25,9 @@ export function testStorage(id) {
 }
 
 export function getStorageCapacity(id) {
-  return api.get(`/storages/${id}/capacity`)
+  return api.get(`/storages/${id}/capacity`, { silent: true })
 }
 
 export function getAllStorageCapacity() {
-  return api.get('/storages/capacity/all')
+  return api.get('/storages/capacity/all', { silent: true })
 }

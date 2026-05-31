@@ -37,17 +37,26 @@ def get_all_storage_capacity(
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("storage:read")),
 ):
-    storages = db.query(Storage).filter(Storage.deleted_at.is_(None), Storage.status == "ACTIVE").all()
+    try:
+        storages = db.query(Storage).filter(Storage.deleted_at.is_(None), Storage.status == "ACTIVE").all()
+    except Exception:
+        db.rollback()
+        return []
     results = []
     for s in storages:
-        used = get_storage_usage(db, s)
+        try:
+            used = get_storage_usage(db, s)
+        except Exception:
+            db.rollback()
+            used = 0
         usage_percent = None
-        if s.capacity_limit_bytes and s.capacity_limit_bytes > 0:
-            usage_percent = round((used / s.capacity_limit_bytes) * 100, 2)
+        capacity_limit = getattr(s, "capacity_limit_bytes", None)
+        if capacity_limit and capacity_limit > 0:
+            usage_percent = round((used / capacity_limit) * 100, 2)
         results.append({
             "storage_id": s.id,
             "storage_name": s.name,
-            "capacity_limit_bytes": s.capacity_limit_bytes,
+            "capacity_limit_bytes": capacity_limit,
             "used_bytes": used,
             "usage_percent": usage_percent,
         })
@@ -153,14 +162,19 @@ def get_storage_capacity(
     item = db.get(Storage, storage_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
-    used = get_storage_usage(db, item)
+    try:
+        used = get_storage_usage(db, item)
+    except Exception:
+        db.rollback()
+        used = 0
     usage_percent = None
-    if item.capacity_limit_bytes and item.capacity_limit_bytes > 0:
-        usage_percent = round((used / item.capacity_limit_bytes) * 100, 2)
+    capacity_limit = getattr(item, "capacity_limit_bytes", None)
+    if capacity_limit and capacity_limit > 0:
+        usage_percent = round((used / capacity_limit) * 100, 2)
     return {
         "storage_id": item.id,
         "storage_name": item.name,
-        "capacity_limit_bytes": item.capacity_limit_bytes,
+        "capacity_limit_bytes": capacity_limit,
         "used_bytes": used,
         "usage_percent": usage_percent,
     }
