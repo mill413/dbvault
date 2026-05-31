@@ -1,5 +1,7 @@
 # DBVault
 
+**[中文](README_CN.md)** | English
+
 **A centralized, agentless database backup and recovery platform.**
 
 DBVault provides a unified management interface for scheduling, executing, and monitoring database backups across your infrastructure. Built with FastAPI and Vue 3, it supports MySQL, PostgreSQL, and MariaDB with local filesystem and S3-compatible storage backends.
