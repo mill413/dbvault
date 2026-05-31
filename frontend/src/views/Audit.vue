@@ -3,10 +3,10 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>审计日志</span>
+          <span>{{ $t('audit.title') }}</span>
           <div class="header-filters">
-            <el-input v-model="searchAction" placeholder="搜索操作" clearable style="width: 180px" />
-            <el-select v-model="filterResult" placeholder="结果筛选" clearable style="width: 120px">
+            <el-input v-model="searchAction" :placeholder="$t('audit.searchAction')" clearable style="width: 180px" />
+            <el-select v-model="filterResult" :placeholder="$t('audit.resultFilter')" clearable style="width: 120px">
               <el-option label="成功" value="success" />
               <el-option label="失败" value="failure" />
             </el-select>
@@ -16,17 +16,17 @@
 
       <el-table :data="filteredLogs" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="action" label="操作" width="180" />
-        <el-table-column prop="actor_user_id" label="操作人" width="100" />
-        <el-table-column prop="resource_type" label="资源类型" width="120" />
-        <el-table-column prop="result" label="结果" width="100">
+        <el-table-column prop="action" :label="$t('audit.action')" width="180" />
+        <el-table-column prop="actor_user_id" :label="$t('audit.actor')" width="100" />
+        <el-table-column prop="resource_type" :label="$t('audit.resourceType')" width="120" />
+        <el-table-column prop="result" :label="$t('audit.result')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.result === 'success' ? 'success' : 'danger'" size="small">{{ row.result }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="ip_address" label="IP地址" width="140" />
-        <el-table-column prop="reason" label="原因" />
-        <el-table-column label="时间" width="180">
+        <el-table-column prop="ip_address" :label="$t('audit.ip')" width="140" />
+        <el-table-column prop="reason" :label="$t('audit.reason')" />
+        <el-table-column :label="$t('common.time')" width="180">
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>

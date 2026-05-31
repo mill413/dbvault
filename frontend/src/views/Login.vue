@@ -6,25 +6,25 @@
         <h2>DBVault</h2>
       </div>
       <div class="slogan">
-        <h1>Secure. Reliable.<br/>Database Management.</h1>
-        <p>Enterprise-grade backup and recovery platform for your mission-critical data.</p>
+        <h1>{{ $t('login.title') }}</h1>
+        <p>{{ $t('login.subtitle') }}</p>
       </div>
     </div>
     <div class="login-right">
       <div class="login-card">
         <div class="login-header">
-          <h2>Welcome Back</h2>
-          <p>Please enter your credentials to continue</p>
+          <h2>{{ $t('login.welcome') }}</h2>
+          <p>{{ $t('login.prompt') }}</p>
         </div>
         <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handleLogin" size="large">
           <el-form-item prop="username">
-            <el-input v-model="form.username" placeholder="Username" prefix-icon="User" />
+            <el-input v-model="form.username" :placeholder="$t('login.username')" prefix-icon="User" />
           </el-form-item>
           <el-form-item prop="password">
             <el-input
               v-model="form.password"
               type="password"
-              placeholder="Password"
+              :placeholder="$t('login.password')"
               prefix-icon="Lock"
               show-password
               @keyup.enter="handleLogin"
@@ -32,7 +32,7 @@
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="loading" @click="handleLogin" class="submit-btn">
-              Sign In
+              {{ $t('login.signIn') }}
             </el-button>
           </el-form-item>
         </el-form>
@@ -44,6 +44,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
@@ -51,6 +52,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const formRef = ref(null)
 const loading = ref(false)
+const { t } = useI18n()
 
 const form = reactive({
   username: '',
@@ -58,8 +60,8 @@ const form = reactive({
 })
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  username: [{ required: true, message: t('login.username'), trigger: 'blur' }],
+  password: [{ required: true, message: t('login.password'), trigger: 'blur' }],
 }
 
 const handleLogin = async () => {
@@ -69,7 +71,7 @@ const handleLogin = async () => {
   loading.value = true
   try {
     await authStore.login(form)
-    ElMessage.success('登录成功')
+    ElMessage.success(t('login.success'))
     router.push('/')
   } catch (error) {
     console.error('Login failed:', error)

@@ -3,16 +3,16 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>告警管理</span>
+          <span>{{ $t('alert.title') }}</span>
           <div class="header-filters">
-            <el-input v-model="searchTitle" placeholder="搜索标题" clearable style="width: 180px" />
-            <el-select v-model="filterSeverity" placeholder="严重级别" clearable style="width: 130px">
+            <el-input v-model="searchTitle" :placeholder="$t('alert.searchTitle')" clearable style="width: 180px" />
+            <el-select v-model="filterSeverity" :placeholder="$t('alert.severityFilter')" clearable style="width: 130px">
               <el-option label="严重" value="CRITICAL" />
               <el-option label="错误" value="ERROR" />
               <el-option label="警告" value="WARNING" />
               <el-option label="信息" value="INFO" />
             </el-select>
-            <el-select v-model="statusFilter" placeholder="状态筛选" clearable style="width: 130px">
+            <el-select v-model="statusFilter" :placeholder="$t('alert.statusFilter')" clearable style="width: 130px">
               <el-option label="OPEN" value="OPEN" />
               <el-option label="RESOLVED" value="RESOLVED" />
             </el-select>
@@ -22,33 +22,33 @@
 
       <el-table :data="filteredAlerts" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="title" label="标题" width="200" />
-        <el-table-column prop="alert_type" label="类型" width="120" />
-        <el-table-column prop="severity" label="严重级别" width="100">
+        <el-table-column prop="title" :label="$t('dashboard.title')" width="200" />
+        <el-table-column prop="alert_type" :label="$t('alert.alertType')" width="120" />
+        <el-table-column prop="severity" :label="$t('dashboard.severity')" width="100">
           <template #default="{ row }">
             <el-tag :type="getSeverityType(row.severity)" size="small">{{ row.severity }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" :label="$t('common.status')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'OPEN' ? 'danger' : 'success'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="resource_type" label="资源类型" width="120" />
-        <el-table-column prop="message" label="消息" min-width="200" show-overflow-tooltip />
-        <el-table-column label="创建时间" width="180">
+        <el-table-column prop="resource_type" :label="$t('alert.resourceType')" width="120" />
+        <el-table-column prop="message" :label="$t('alert.message')" min-width="200" show-overflow-tooltip />
+        <el-table-column :label="$t('common.createTime')" width="180">
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="解决时间" width="180">
+        <el-table-column :label="$t('alert.resolvedAt')" width="180">
           <template #default="{ row }">
             {{ formatTime(row.resolved_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column :label="$t('common.actions')" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="handleResolve(row)" :disabled="row.status !== 'OPEN'">Resolve</el-button>
+            <el-button size="small" type="primary" @click="handleResolve(row)" :disabled="row.status !== 'OPEN'">{{ $t('alert.resolve') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -69,6 +69,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { getAlerts, resolveAlert } from '../api/alerts'
@@ -81,6 +82,7 @@ const searchTitle = ref('')
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const { t } = useI18n()
 
 const getSeverityType = (severity) => {
   const map = { CRITICAL: 'danger', ERROR: 'danger', WARNING: 'warning', INFO: 'info' }
@@ -124,7 +126,7 @@ const fetchData = async () => {
 const handleResolve = async (row) => {
   try {
     await resolveAlert(row.id)
-    ElMessage.success('告警已解决')
+    ElMessage.success(t('alert.resolvedSuccess'))
     fetchData()
   } catch (error) {
     console.error('Failed to resolve alert:', error)

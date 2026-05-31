@@ -15,39 +15,39 @@
       >
         <el-menu-item index="/dashboard">
           <el-icon><Odometer /></el-icon>
-          <span>Dashboard</span>
+          <span>{{ $t('common.dashboard') }}</span>
         </el-menu-item>
         <el-menu-item index="/databases">
           <el-icon><Coin /></el-icon>
-          <span>Databases</span>
+          <span>{{ $t('common.databases') }}</span>
         </el-menu-item>
         <el-menu-item index="/storages">
           <el-icon><Files /></el-icon>
-          <span>Storage</span>
+          <span>{{ $t('common.storage') }}</span>
         </el-menu-item>
         <el-menu-item index="/backups">
           <el-icon><Upload /></el-icon>
-          <span>Backups</span>
+          <span>{{ $t('common.backups') }}</span>
         </el-menu-item>
         <el-menu-item index="/jobs">
           <el-icon><Clock /></el-icon>
-          <span>Schedules</span>
+          <span>{{ $t('common.schedules') }}</span>
         </el-menu-item>
         <el-menu-item index="/audit">
           <el-icon><Document /></el-icon>
-          <span>Audit Logs</span>
+          <span>{{ $t('common.auditLogs') }}</span>
         </el-menu-item>
         <el-menu-item index="/restores">
           <el-icon><Download /></el-icon>
-          <span>Restores</span>
+          <span>{{ $t('common.restores') }}</span>
         </el-menu-item>
         <el-menu-item index="/alerts">
           <el-icon><Warning /></el-icon>
-          <span>Alerts</span>
+          <span>{{ $t('common.alerts') }}</span>
         </el-menu-item>
         <el-menu-item index="/users">
           <el-icon><UserFilled /></el-icon>
-          <span>Users</span>
+          <span>{{ $t('common.users') }}</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -71,7 +71,7 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="logout">Sign Out</el-dropdown-item>
+                <el-dropdown-item command="logout">{{ $t('common.signOut') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>

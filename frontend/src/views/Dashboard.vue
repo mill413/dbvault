@@ -24,7 +24,7 @@
         <el-card class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>Backup Success Trends (Last 7 Days)</span>
+              <span>{{ $t('dashboard.backupTrends') }}</span>
             </div>
           </template>
           <div ref="trendChartRef" class="chart-container"></div>
@@ -34,7 +34,7 @@
         <el-card class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>Storage Usage Distribution</span>
+              <span>{{ $t('dashboard.storageUsage') }}</span>
             </div>
           </template>
           <div ref="storageChartRef" class="chart-container"></div>
@@ -48,18 +48,18 @@
         <el-card class="table-card">
           <template #header>
             <div class="card-header">
-              <span>Recent Backups</span>
-              <el-button type="primary" link @click="$router.push('/backups')">View All</el-button>
+              <span>{{ $t('dashboard.recentBackups') }}</span>
+              <el-button type="primary" link @click="$router.push('/backups')">{{ $t('common.viewAll') }}</el-button>
             </div>
           </template>
           <el-table :data="recentBackups" style="width: 100%" size="default">
-            <el-table-column prop="database.name" label="Database" />
-            <el-table-column prop="status" label="Status" width="120">
+            <el-table-column prop="database.name" :label="$t('dashboard.database')" />
+            <el-table-column prop="status" :label="$t('common.status')" width="120">
               <template #default="{ row }">
                 <el-tag :type="getStatusType(row.status)" size="small" effect="light">{{ row.status }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="Time" width="160">
+            <el-table-column :label="$t('common.time')" width="160">
               <template #default="{ row }">
                 {{ formatTime(row.created_at) }}
               </template>
@@ -71,18 +71,18 @@
         <el-card class="table-card">
           <template #header>
             <div class="card-header">
-              <span>Active Alerts</span>
-              <el-button type="primary" link @click="$router.push('/alerts')">View All</el-button>
+              <span>{{ $t('dashboard.activeAlerts') }}</span>
+              <el-button type="primary" link @click="$router.push('/alerts')">{{ $t('common.viewAll') }}</el-button>
             </div>
           </template>
           <el-table :data="recentAlerts" style="width: 100%" size="default">
-            <el-table-column prop="title" label="Title" show-overflow-tooltip />
-            <el-table-column prop="severity" label="Severity" width="100">
+            <el-table-column prop="title" :label="$t('dashboard.title')" show-overflow-tooltip />
+            <el-table-column prop="severity" :label="$t('dashboard.severity')" width="100">
               <template #default="{ row }">
                 <el-tag :type="getSeverityType(row.severity)" size="small" effect="dark">{{ row.severity }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="Time" width="160">
+            <el-table-column :label="$t('common.time')" width="160">
               <template #default="{ row }">
                 {{ formatTime(row.created_at) }}
               </template>
@@ -97,6 +97,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import dayjs from 'dayjs'
+import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import { getDashboardSummary, getBackupTrends, getAlerts, getStorageUsage } from '../api/common'
 import { getBackups } from '../api/backups'
@@ -105,16 +106,17 @@ const stats = ref({})
 const recentBackups = ref([])
 const recentAlerts = ref([])
 const trendChartRef = ref(null)
+const { t } = useI18n()
 const storageChartRef = ref(null)
 
 let trendChart = null
 let storageChart = null
 
-const statCards = ref([
-  { label: 'Total Databases', value: 0, icon: 'Coin', color: '#00d2ff', bgColor: 'rgba(0, 210, 255, 0.1)' },
-  { label: 'Total Backups', value: 0, icon: 'Upload', color: '#00e676', bgColor: 'rgba(0, 230, 118, 0.1)' },
-  { label: 'Active Jobs', value: 0, icon: 'Clock', color: '#ffb74d', bgColor: 'rgba(255, 183, 77, 0.1)' },
-  { label: 'Open Alerts', value: 0, icon: 'Warning', color: '#f1416c', bgColor: 'rgba(241, 65, 108, 0.1)' },
+const statCards = computed(() => [
+  { label: t('dashboard.totalDatabases'), value: stats.value.database_count || 0, icon: 'Coin', color: '#00d2ff', bgColor: 'rgba(0, 210, 255, 0.1)' },
+  { label: t('dashboard.totalBackups'), value: stats.value.backup_count || 0, icon: 'Upload', color: '#00e676', bgColor: 'rgba(0, 230, 118, 0.1)' },
+  { label: t('dashboard.activeJobs'), value: stats.value.job_count || 0, icon: 'Clock', color: '#ffb74d', bgColor: 'rgba(255, 183, 77, 0.1)' },
+  { label: t('dashboard.openAlerts'), value: stats.value.alert_count || 0, icon: 'Warning', color: '#f1416c', bgColor: 'rgba(241, 65, 108, 0.1)' },
 ])
 
 const formatTime = (date) => {
@@ -201,10 +203,7 @@ onMounted(async () => {
     const summaryRes = await getDashboardSummary()
     stats.value = summaryRes.data || {}
     
-    statCards.value[0].value = stats.value.database_count || 0
-    statCards.value[1].value = stats.value.backup_count || 0
-    statCards.value[2].value = stats.value.job_count || 0
-    statCards.value[3].value = stats.value.alert_count || 0
+    
 
     const backupsRes = await getBackups({ page: 1, page_size: 5 })
     recentBackups.value = backupsRes.data.items || []

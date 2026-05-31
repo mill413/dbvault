@@ -3,13 +3,13 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>存储管理</span>
+          <span>{{ $t('storage.title') }}</span>
           <div class="header-filters">
-            <el-select v-model="filterType" placeholder="存储类型" clearable style="width: 140px">
+            <el-select v-model="filterType" :placeholder="$t('storage.typeFilter')" clearable style="width: 140px">
               <el-option label="本地存储" value="local" />
               <el-option label="S3" value="s3" />
             </el-select>
-            <el-select v-model="filterStatus" placeholder="状态筛选" clearable style="width: 120px">
+            <el-select v-model="filterStatus" :placeholder="$t('storage.statusFilter')" clearable style="width: 120px">
               <el-option label="ACTIVE" value="ACTIVE" />
               <el-option label="INACTIVE" value="INACTIVE" />
             </el-select>
@@ -23,39 +23,39 @@
 
       <el-table :data="filteredStorages" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="name" label="存储名称" />
-        <el-table-column prop="storage_type" label="类型" width="120">
+        <el-table-column prop="name" :label="$t('storage.name')" />
+        <el-table-column prop="storage_type" :label="$t('storage.type')" width="120">
           <template #default="{ row }">
             <el-tag>{{ row.storage_type.toUpperCase() }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_default" label="默认存储" width="100">
+        <el-table-column prop="is_default" :label="$t('storage.isDefault')" width="100">
           <template #default="{ row }">
             <el-tag v-if="row.is_default" type="success" size="small">是</el-tag>
             <el-tag v-else type="info" size="small">否</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" :label="$t('common.status')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column :label="$t('common.actions')" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="testStorage(row)">Test</el-button>
-            <el-button size="small" type="primary" @click="showEditDialog(row)">Edit</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">Delete</el-button>
+            <el-button size="small" @click="testStorage(row)">{{ $t('storage.test') }}</el-button>
+            <el-button size="small" type="primary" @click="showEditDialog(row)">{{ $t('common.edit') }}</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)">{{ $t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? 'Edit Storage' : 'Add Storage'" width="600px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? $t('storage.editStorage') : $t('storage.addStorage')" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="存储名称" prop="name">
+        <el-form-item :label="$t('storage.name')" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="存储类型" prop="storage_type">
+        <el-form-item :label="$t('storage.type')" prop="storage_type">
           <el-select v-model="form.storage_type" style="width: 100%" @change="onTypeChange">
             <el-option label="本地存储" value="local" />
             <el-option label="MinIO/S3" value="s3" />
@@ -63,36 +63,36 @@
         </el-form-item>
 
         <template v-if="form.storage_type === 'local'">
-          <el-form-item label="存储路径" prop="config.path">
+          <el-form-item :label="$t('storage.path')" prop="config.path">
             <el-input v-model="form.config.path" placeholder="/path/to/backups" />
           </el-form-item>
         </template>
 
         <template v-if="form.storage_type === 's3'">
-          <el-form-item label="Endpoint" prop="config.endpoint_url">
+          <el-form-item :label="$t('storage.endpoint')" prop="config.endpoint_url">
             <el-input v-model="form.config.endpoint_url" placeholder="http://minio:9000" />
           </el-form-item>
-          <el-form-item label="Access Key" prop="config.access_key">
+          <el-form-item :label="$t('storage.accessKey')" prop="config.access_key">
             <el-input v-model="form.config.access_key" />
           </el-form-item>
-          <el-form-item label="Secret Key" prop="config.secret_key">
+          <el-form-item :label="$t('storage.secretKey')" prop="config.secret_key">
             <el-input v-model="form.config.secret_key" type="password" show-password />
           </el-form-item>
-          <el-form-item label="Bucket" prop="config.bucket">
+          <el-form-item :label="$t('storage.bucket')" prop="config.bucket">
             <el-input v-model="form.config.bucket" />
           </el-form-item>
-          <el-form-item label="Region">
+          <el-form-item :label="$t('storage.region')">
             <el-input v-model="form.config.region" placeholder="us-east-1" />
           </el-form-item>
         </template>
 
-        <el-form-item label="设为默认">
+        <el-form-item :label="$t('storage.isDefault')">
           <el-switch v-model="form.is_default" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">Confirm</el-button>
+        <el-button @click="dialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitting">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -100,6 +100,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStorages, createStorage, updateStorage, deleteStorage, testStorage as testStorageApi } from '../api/storages'
 
@@ -112,6 +113,7 @@ const editId = ref(null)
 const formRef = ref(null)
 const filterType = ref('')
 const filterStatus = ref('')
+const { t } = useI18n()
 
 const form = reactive({
   name: '',
@@ -200,7 +202,7 @@ const handleSubmit = async () => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(`确定要删除存储 "${row.name}" 吗？`, '确认删除', { type: 'warning' })
+    await ElMessageBox.confirm(t('storage.deleteConfirm', { name: row.name }), t('common.confirm'), { type: 'warning' })
     await deleteStorage(row.id)
     ElMessage.success('删除成功')
     fetchData()
@@ -214,7 +216,7 @@ const handleDelete = async (row) => {
 const testStorage = async (row) => {
   try {
     await testStorageApi(row.id)
-    ElMessage.success('存储测试成功')
+    ElMessage.success(t('storage.testSuccess'))
   } catch (error) {
     console.error('Storage test failed:', error)
   }
