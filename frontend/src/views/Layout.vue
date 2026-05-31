@@ -262,16 +262,3 @@ const handleCommand = async (command) => {
   transform: translateY(-15px);
 }
 </style>
-, 0.2, 1);
-}
-
-.fade-transform-enter-from {
-  opacity: 0;
-  transform: translateY(15px);
-}
-
-.fade-transform-leave-to {
-  opacity: 0;
-  transform: translateY(-15px);
-}
-</style>
