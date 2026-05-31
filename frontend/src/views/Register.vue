@@ -78,6 +78,7 @@ import { useI18n } from 'vue-i18n'
 import { register, getPublicConfig } from '../api/auth'
 import { ElMessage } from 'element-plus'
 import { InfoFilled } from '@element-plus/icons-vue'
+import { createPasswordValidator } from '../utils/validation'
 
 const router = useRouter()
 const formRef = ref(null)
@@ -113,7 +114,7 @@ const validateConfirmPassword = (rule, value, callback) => {
 
 const rules = {
   username: [{ required: true, message: t('user.usernameRequired'), trigger: 'blur' }, { min: 3, max: 64, message: '3-64 characters', trigger: 'blur' }],
-  password: [{ required: true, message: t('user.passwordRequired'), trigger: 'blur' }, { min: 12, message: t('user.passwordLength'), trigger: 'blur' }],
+  password: [{ validator: createPasswordValidator(t), trigger: 'blur' }],
   confirmPassword: [{ required: true, message: t('user.passwordRequired'), trigger: 'blur' }, { validator: validateConfirmPassword, trigger: 'blur' }],
 }
 

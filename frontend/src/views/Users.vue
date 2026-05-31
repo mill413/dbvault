@@ -126,6 +126,7 @@ import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUsers, createUser, updateUser, deleteUser, resetPassword } from '../api/users'
+import { createPasswordValidator } from '../utils/validation'
 
 const users = ref([])
 const loading = ref(false)
@@ -161,12 +162,12 @@ const resetForm = reactive({
 
 const rules = {
   username: [{ required: true, message: t('user.usernameRequired'), trigger: 'blur' }],
-  password: [{ required: true, message: t('user.passwordRequired'), trigger: 'blur' }, { min: 12, message: t('user.passwordLength'), trigger: 'blur' }],
+  password: [{ validator: createPasswordValidator(t), trigger: 'blur' }],
   role: [{ required: true, message: t('user.roleRequired'), trigger: 'change' }],
 }
 
 const resetRules = {
-  password: [{ required: true, message: t('user.passwordRequired'), trigger: 'blur' }, { min: 12, message: t('user.passwordLength'), trigger: 'blur' }],
+  password: [{ validator: createPasswordValidator(t), trigger: 'blur' }],
 }
 
 const getRoleType = (role) => {

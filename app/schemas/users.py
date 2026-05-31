@@ -1,13 +1,18 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.schemas.common import ORMModel
+from app.schemas.common import ORMModel, validate_password
 
 
 class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=64)
-    password: str = Field(min_length=12)
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, v: str) -> str:
+        return validate_password(v)
     display_name: str | None = None
     email: EmailStr | None = None
     role: str = "Viewer"
@@ -32,5 +37,10 @@ class UserRead(ORMModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    password: str = Field(min_length=12)
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, v: str) -> str:
+        return validate_password(v)
 

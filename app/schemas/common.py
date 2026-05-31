@@ -19,3 +19,13 @@ class Page(BaseModel, Generic[T]):
 class Message(BaseModel):
     message: str
 
+
+def validate_password(value: str) -> str:
+    if len(value) < 5:
+        raise ValueError("password must be at least 5 characters")
+    if not any(c.isalpha() for c in value):
+        raise ValueError("password must contain at least one letter")
+    if not any(c.isdigit() for c in value):
+        raise ValueError("password must contain at least one digit")
+    return value
+
