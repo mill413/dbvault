@@ -184,7 +184,7 @@ const filteredJobs = computed(() => {
     const keyword = searchName.value.toLowerCase()
     result = result.filter((job) => job.name.toLowerCase().includes(keyword))
   }
-  if (filterEnabled.value !== null && filterEnabled.value !== '') {
+  if (typeof filterEnabled.value === 'boolean') {
     result = result.filter((job) => job.enabled === filterEnabled.value)
   }
   return result
