@@ -15,7 +15,7 @@
             </el-select>
             <el-button type="primary" @click="showCreateDialog">
               <el-icon><Plus /></el-icon>
-              Add Storage
+              {{ $t('common.add') }}
             </el-button>
           </div>
         </div>

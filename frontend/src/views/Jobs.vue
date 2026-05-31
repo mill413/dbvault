@@ -12,7 +12,7 @@
             </el-select>
             <el-button type="primary" @click="showCreateDialog">
               <el-icon><Plus /></el-icon>
-              Add Job
+              {{ $t('common.add') }}
             </el-button>
           </div>
         </div>

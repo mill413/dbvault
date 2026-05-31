@@ -95,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import dayjs from 'dayjs'
 import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
@@ -256,51 +256,39 @@ onBeforeUnmount(() => {
 }
 
 .stat-card {
-  position: relative;
-  overflow: hidden;
+  padding: 16px;
+}
+
+.stat-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  padding: 8px;
-}
-
-.stat-icon-wrapper {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 16px;
-  z-index: 1;
-}
-
-.stat-info {
-  z-index: 1;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #181c32;
-  line-height: 1.2;
+  margin-bottom: 16px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #a1a5b7;
-  font-weight: 500;
-  margin-top: 4px;
+  color: var(--ctp-subtext0);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.stat-bg-icon {
-  position: absolute;
-  right: -20px;
-  top: -20px;
-  font-size: 120px;
-  color: #f5f8fa;
-  opacity: 0.5;
-  z-index: 0;
-  transform: rotate(-15deg);
+.stat-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-color);
+  line-height: 1;
 }
 
 .card-header {
@@ -309,7 +297,7 @@ onBeforeUnmount(() => {
   align-items: center;
   font-weight: 600;
   font-size: 16px;
-  color: #181c32;
+  color: var(--text-color);
 }
 
 .chart-container {

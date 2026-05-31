@@ -1,16 +1,38 @@
-/* Modern Tech Theme Variables */
+/* Catppuccin Theme Variables */
 :root {
-  --el-color-primary: #00d2ff;
-  --el-color-primary-light-3: #4ddbff;
-  --el-color-primary-light-5: #80e5ff;
-  --el-color-primary-light-7: #b3f0ff;
-  --el-color-primary-light-9: #e6faff;
-  --el-color-primary-dark-2: #00a8cc;
-  
-  --el-color-success: #00e676;
-  --el-color-warning: #ffb74d;
-  --el-color-danger: #f1416c;
-  --el-color-info: #909399;
+  /* Latte (Light) */
+  --ctp-rosewater: #dc8a78;
+  --ctp-flamingo: #dd7878;
+  --ctp-pink: #ea76cb;
+  --ctp-mauve: #8839ef;
+  --ctp-red: #d20f39;
+  --ctp-maroon: #e64553;
+  --ctp-peach: #fe640b;
+  --ctp-yellow: #df8e1d;
+  --ctp-green: #40a02b;
+  --ctp-teal: #179299;
+  --ctp-sky: #04a5e5;
+  --ctp-sapphire: #209fb5;
+  --ctp-blue: #1e66f5;
+  --ctp-lavender: #7287fd;
+  --ctp-text: #4c4f69;
+  --ctp-subtext1: #5c5f77;
+  --ctp-subtext0: #6c6f85;
+  --ctp-overlay2: #7c7f93;
+  --ctp-overlay1: #8c8fa1;
+  --ctp-overlay0: #9ca0b0;
+  --ctp-surface2: #acb0be;
+  --ctp-surface1: #bcc0cc;
+  --ctp-surface0: #ccd0da;
+  --ctp-base: #eff1f5;
+  --ctp-mantle: #e6e9ef;
+  --ctp-crust: #dce0e8;
+
+  --el-color-primary: var(--ctp-blue);
+  --el-color-success: var(--ctp-green);
+  --el-color-warning: var(--ctp-yellow);
+  --el-color-danger: var(--ctp-red);
+  --el-color-info: var(--ctp-subtext0);
 
   --el-border-radius-base: 8px;
   --el-border-radius-small: 6px;
@@ -19,25 +41,79 @@
   --el-box-shadow-light: 0 4px 12px rgba(0, 0, 0, 0.05);
   --el-box-shadow-base: 0 8px 24px rgba(0, 0, 0, 0.08);
 
-  --sidebar-bg: #1e1e2d;
-  --sidebar-text: #a1a5b7;
-  --sidebar-active-bg: #2b2b40;
-  --sidebar-active-text: #00d2ff;
+  --main-bg: var(--ctp-mantle);
+  --sidebar-bg: var(--ctp-crust);
+  --sidebar-text: var(--ctp-subtext1);
+  --sidebar-active-bg: var(--ctp-surface0);
+  --sidebar-active-text: var(--ctp-blue);
 
-  --main-bg: #f5f8fa;
-  --card-bg: #ffffff;
+  --card-bg: var(--ctp-base);
+  --text-color: var(--ctp-text);
+  --border-color: var(--ctp-surface0);
+
+  --el-bg-color: var(--card-bg);
+  --el-bg-color-overlay: var(--card-bg);
+  --el-text-color-primary: var(--text-color);
+  --el-border-color-light: var(--border-color);
+  --el-fill-color-blank: var(--ctp-base);
+}
+
+html.dark {
+  /* Mocha (Dark) */
+  --ctp-rosewater: #f5e0dc;
+  --ctp-flamingo: #f2cdcd;
+  --ctp-pink: #f5c2e7;
+  --ctp-mauve: #cba6f7;
+  --ctp-red: #f38ba8;
+  --ctp-maroon: #eba0ac;
+  --ctp-peach: #fab387;
+  --ctp-yellow: #f9e2af;
+  --ctp-green: #a6e3a1;
+  --ctp-teal: #94e2d5;
+  --ctp-sky: #89dceb;
+  --ctp-sapphire: #74c7ec;
+  --ctp-blue: #89b4fa;
+  --ctp-lavender: #b4befe;
+  --ctp-text: #cdd6f4;
+  --ctp-subtext1: #bac2de;
+  --ctp-subtext0: #a6adc8;
+  --ctp-overlay2: #9399b2;
+  --ctp-overlay1: #7f849c;
+  --ctp-overlay0: #6c7086;
+  --ctp-surface2: #585b70;
+  --ctp-surface1: #45475a;
+  --ctp-surface0: #313244;
+  --ctp-base: #1e1e2e;
+  --ctp-mantle: #181825;
+  --ctp-crust: #11111b;
+
+  --el-box-shadow-light: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --el-box-shadow-base: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  /* Element plus dark overrides */
+  --el-bg-color: var(--ctp-base);
+  --el-bg-color-overlay: var(--ctp-surface0);
+  --el-text-color-primary: var(--ctp-text);
+  --el-border-color: var(--ctp-surface1);
+  --el-border-color-light: var(--ctp-surface0);
+  --el-fill-color-blank: var(--ctp-mantle);
+  --el-fill-color: var(--ctp-surface0);
+  --el-mask-color: rgba(17, 17, 27, 0.8);
 }
 
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   background-color: var(--main-bg);
-  color: #3f4254;
+  color: var(--text-color);
+  transition: background-color 0.3s, color 0.3s;
 }
 
 /* Card overrides */
 .el-card {
-  border: none !important;
+  border: 1px solid var(--border-color) !important;
+  background-color: var(--card-bg) !important;
+  color: var(--text-color) !important;
   box-shadow: var(--el-box-shadow-light) !important;
   border-radius: 12px !important;
   transition: all 0.3s ease;
@@ -46,7 +122,7 @@ body {
   box-shadow: var(--el-box-shadow-base) !important;
 }
 .el-card__header {
-  border-bottom: 1px dashed #eff2f5 !important;
+  border-bottom: 1px solid var(--border-color) !important;
   padding: 20px 24px !important;
 }
 
@@ -58,9 +134,13 @@ body {
 
 /* Table overrides */
 .el-table {
-  --el-table-border-color: #eff2f5;
-  --el-table-header-bg-color: #f9fbfd;
-  --el-table-header-text-color: #5e6278;
+  --el-table-border-color: var(--border-color);
+  --el-table-header-bg-color: var(--ctp-mantle);
+  --el-table-header-text-color: var(--ctp-subtext1);
+  --el-table-tr-bg-color: var(--ctp-base);
+  --el-table-row-hover-bg-color: var(--ctp-surface0);
+  background-color: var(--card-bg);
+  color: var(--text-color);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -70,30 +150,55 @@ body {
   font-size: 12px;
   letter-spacing: 0.5px;
   padding: 12px 0 !important;
+  background-color: var(--ctp-mantle) !important;
 }
 .el-table td.el-table__cell {
   padding: 12px 0 !important;
+  border-bottom: 1px solid var(--border-color) !important;
 }
 
 /* Pagination */
 .el-pagination {
   --el-pagination-hover-color: var(--el-color-primary);
+  --el-pagination-bg-color: var(--ctp-base);
+  --el-pagination-text-color: var(--ctp-text);
+  --el-pagination-button-color: var(--ctp-text);
+  --el-pagination-button-disabled-color: var(--ctp-overlay0);
+  --el-pagination-button-disabled-bg-color: var(--ctp-surface0);
 }
 
 /* Global Dialog Polish */
 .el-dialog {
   border-radius: 12px !important;
   overflow: hidden;
+  background-color: var(--card-bg) !important;
+}
+.el-dialog__title {
+  color: var(--text-color) !important;
 }
 .el-dialog__header {
   margin-right: 0 !important;
-  border-bottom: 1px dashed #eff2f5;
+  border-bottom: 1px solid var(--border-color);
   padding: 20px 24px !important;
 }
 .el-dialog__body {
   padding: 24px !important;
+  color: var(--ctp-subtext1) !important;
 }
 .el-dialog__footer {
-  border-top: 1px dashed #eff2f5;
+  border-top: 1px solid var(--border-color);
   padding: 16px 24px !important;
 }
+
+/* Form inputs */
+.el-input__wrapper, .el-select__wrapper {
+  background-color: var(--ctp-mantle) !important;
+  box-shadow: 0 0 0 1px var(--border-color) inset !important;
+}
+.el-input__wrapper.is-focus, .el-select__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
+}
+.el-input__inner {
+  color: var(--text-color) !important;
+}
+

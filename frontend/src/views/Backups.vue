@@ -17,7 +17,7 @@
             </el-select>
             <el-button type="primary" @click="showBackupDialog">
               <el-icon><Upload /></el-icon>
-              Run Backup
+              {{ $t('backup.runBackup') }}
             </el-button>
           </div>
         </div>

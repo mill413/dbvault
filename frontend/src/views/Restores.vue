@@ -14,7 +14,7 @@
             </el-select>
             <el-button type="primary" @click="showRestoreDialog">
               <el-icon><Download /></el-icon>
-              Restore Backup
+              {{ $t('restore.restoreBackup') }}
             </el-button>
           </div>
         </div>

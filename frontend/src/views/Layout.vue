@@ -58,6 +58,14 @@
           <span class="page-title">{{ currentTitle }}</span>
         </div>
         <div class="header-right">
+          <el-switch
+            v-model="isDark"
+            inline-prompt
+            active-icon="Moon"
+            inactive-icon="Sunny"
+            @change="toggleDark"
+            style="margin-right: 24px; --el-switch-on-color: var(--ctp-surface0); --el-switch-off-color: var(--ctp-surface1);"
+          />
           <el-dropdown @command="handleCommand" trigger="click">
             <div class="user-profile">
               <div class="avatar">
@@ -242,6 +250,19 @@ const handleCommand = async (command) => {
 .fade-transform-enter-active,
 .fade-transform-leave-active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-transform-enter-from {
+  opacity: 0;
+  transform: translateY(15px);
+}
+
+.fade-transform-leave-to {
+  opacity: 0;
+  transform: translateY(-15px);
+}
+</style>
+, 0.2, 1);
 }
 
 .fade-transform-enter-from {
