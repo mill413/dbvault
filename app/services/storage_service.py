@@ -1,5 +1,6 @@
 import json
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.encryption import decrypt_secret, encrypt_secret
@@ -24,12 +25,23 @@ def create_storage(db: Session, payload, user: User) -> Storage:
         storage_type=payload.storage_type.lower(),
         config_encrypted=encrypt_config(payload.config),
         is_default=payload.is_default,
+        capacity_limit_bytes=getattr(payload, "capacity_limit_bytes", None),
         created_by=user.id,
     )
     db.add(storage)
     db.commit()
     db.refresh(storage)
     return storage
+
+
+def get_storage_usage(db: Session, storage: Storage) -> int:
+    from app.models import Backup
+    result = (
+        db.query(func.coalesce(func.sum(Backup.size_bytes), 0))
+        .filter(Backup.storage_id == storage.id, Backup.deleted_at.is_(None))
+        .scalar()
+    )
+    return int(result)
 
 
 def get_default_storage(db: Session) -> Storage:

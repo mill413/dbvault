@@ -6,7 +6,7 @@
           <span>{{ $t('storage.title') }}</span>
           <div class="header-filters">
             <el-select v-model="filterType" :placeholder="$t('storage.typeFilter')" clearable style="width: 140px">
-              <el-option label="本地存储" value="local" />
+              <el-option label="Local" value="local" />
               <el-option label="S3" value="s3" />
             </el-select>
             <el-select v-model="filterStatus" :placeholder="$t('storage.statusFilter')" clearable style="width: 120px">
@@ -31,13 +31,18 @@
         </el-table-column>
         <el-table-column prop="is_default" :label="$t('storage.isDefault')" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.is_default" type="success" size="small">是</el-tag>
-            <el-tag v-else type="info" size="small">否</el-tag>
+            <el-tag v-if="row.is_default" type="success" size="small">{{ $t('common.yes') }}</el-tag>
+            <el-tag v-else type="info" size="small">{{ $t('common.no') }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="status" :label="$t('common.status')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">{{ row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('storage.capacityLimit')" width="140">
+          <template #default="{ row }">
+            {{ row.capacity_limit_bytes ? formatSize(row.capacity_limit_bytes) : '-' }}
           </template>
         </el-table-column>
         <el-table-column :label="$t('common.actions')" width="220" fixed="right">
@@ -48,6 +53,17 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <el-pagination
+        v-model:current-page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next"
+        @current-change="fetchData"
+        @size-change="fetchData"
+        style="margin-top: 20px; justify-content: flex-end"
+      />
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? $t('storage.editStorage') : $t('storage.addStorage')" width="600px">
@@ -57,7 +73,7 @@
         </el-form-item>
         <el-form-item :label="$t('storage.type')" prop="storage_type">
           <el-select v-model="form.storage_type" style="width: 100%" @change="onTypeChange">
-            <el-option label="本地存储" value="local" />
+            <el-option label="Local" value="local" />
             <el-option label="MinIO/S3" value="s3" />
           </el-select>
         </el-form-item>
@@ -86,6 +102,17 @@
           </el-form-item>
         </template>
 
+        <el-form-item :label="$t('storage.capacityLimit')">
+          <el-input-number
+            v-model="form.capacity_limit_gb"
+            :min="0"
+            :step="1"
+            controls-position="right"
+            :placeholder="$t('storage.capacityLimitPlaceholder')"
+            style="width: 100%"
+          />
+          <span style="margin-left: 8px; color: #909399; font-size: 12px">GB</span>
+        </el-form-item>
         <el-form-item :label="$t('storage.isDefault')">
           <el-switch v-model="form.is_default" />
         </el-form-item>
@@ -103,6 +130,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStorages, createStorage, updateStorage, deleteStorage, testStorage as testStorageApi } from '../api/storages'
+import { formatBytes as formatSize } from '../utils/format'
 
 const storages = ref([])
 const loading = ref(false)
@@ -113,6 +141,9 @@ const editId = ref(null)
 const formRef = ref(null)
 const filterType = ref('')
 const filterStatus = ref('')
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 const { t } = useI18n()
 
 const form = reactive({
@@ -123,8 +154,8 @@ const form = reactive({
 })
 
 const rules = {
-  name: [{ required: true, message: '请输入存储名称', trigger: 'blur' }],
-  storage_type: [{ required: true, message: '请选择存储类型', trigger: 'change' }],
+  name: [{ required: true, message: t('storage.nameRequired'), trigger: 'blur' }],
+  storage_type: [{ required: true, message: t('storage.typeRequired'), trigger: 'change' }],
 }
 
 const onTypeChange = () => {
@@ -134,10 +165,10 @@ const onTypeChange = () => {
 const filteredStorages = computed(() => {
   let result = storages.value
   if (filterType.value) {
-    result = result.filter((s) => s.storage_type === filterType.value)
+    result = result.filter(item => item.storage_type === filterType.value)
   }
   if (filterStatus.value) {
-    result = result.filter((s) => s.status === filterStatus.value)
+    result = result.filter(item => item.status === filterStatus.value)
   }
   return result
 })
@@ -145,8 +176,9 @@ const filteredStorages = computed(() => {
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await getStorages({ page_size: 100 })
+    const response = await getStorages({ page: page.value, page_size: pageSize.value })
     storages.value = response.data.items || []
+    total.value = response.data.total || 0
   } catch (error) {
     console.error('Failed to fetch storages:', error)
   } finally {
@@ -162,6 +194,7 @@ const showCreateDialog = () => {
     storage_type: 'local',
     config: {},
     is_default: false,
+    capacity_limit_gb: null,
   })
   dialogVisible.value = true
 }
@@ -174,6 +207,7 @@ const showEditDialog = (row) => {
     storage_type: row.storage_type,
     config: {},
     is_default: row.is_default,
+    capacity_limit_gb: row.capacity_limit_bytes ? row.capacity_limit_bytes / (1024 ** 3) : null,
   })
   dialogVisible.value = true
 }
@@ -182,19 +216,41 @@ const handleSubmit = async () => {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
+  const config = form.storage_type === 'local'
+    ? { path: form.config.path }
+    : {
+        endpoint_url: form.config.endpoint_url,
+        access_key: form.config.access_key,
+        secret_key: form.config.secret_key,
+        bucket: form.config.bucket,
+        region: form.config.region,
+      }
+
+  const capacity_limit_bytes = form.capacity_limit_gb && form.capacity_limit_gb > 0
+    ? Math.round(form.capacity_limit_gb * 1024 * 1024 * 1024)
+    : null
+
+  const payload = {
+    name: form.name,
+    storage_type: form.storage_type,
+    is_default: form.is_default,
+    capacity_limit_bytes,
+    config,
+  }
+
   submitting.value = true
   try {
     if (isEdit.value) {
-      await updateStorage(editId.value, form)
-      ElMessage.success('更新成功')
+      await updateStorage(editId.value, payload)
+      ElMessage.success(t('common.updateSuccess'))
     } else {
-      await createStorage(form)
-      ElMessage.success('创建成功')
+      await createStorage(payload)
+      ElMessage.success(t('common.createSuccess'))
     }
     dialogVisible.value = false
     fetchData()
   } catch (error) {
-    console.error('Failed to submit:', error)
+    console.error('Failed to save storage:', error)
   } finally {
     submitting.value = false
   }
@@ -204,7 +260,7 @@ const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(t('storage.deleteConfirm', { name: row.name }), t('common.confirm'), { type: 'warning' })
     await deleteStorage(row.id)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('common.deleteSuccess'))
     fetchData()
   } catch (error) {
     if (error !== 'cancel') {

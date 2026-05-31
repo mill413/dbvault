@@ -23,3 +23,11 @@ export function deleteStorage(id) {
 export function testStorage(id) {
   return api.post(`/storages/${id}/test`)
 }
+
+export function getStorageCapacity(id) {
+  return api.get(`/storages/${id}/capacity`, { silent: true })
+}
+
+export function getAllStorageCapacity() {
+  return api.get('/storages/capacity/all', { silent: true })
+}

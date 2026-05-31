@@ -41,6 +41,31 @@
       </el-col>
     </el-row>
 
+    <el-card v-if="storageCapacityList.length > 0" shadow="never" class="mt-24">
+      <template #header>
+        <span class="card-title">{{ $t('dashboard.storageCapacity') }}</span>
+      </template>
+      <div v-for="item in storageCapacityList" :key="item.storage_id" class="capacity-item">
+        <div class="capacity-header">
+          <span class="capacity-name">{{ item.storage_name }}</span>
+          <span class="capacity-text">
+            {{ formatBytes(item.used_bytes) }}
+            <template v-if="item.capacity_limit_bytes"> / {{ formatBytes(item.capacity_limit_bytes) }}</template>
+          </span>
+        </div>
+        <el-progress
+          v-if="item.usage_percent !== null"
+          :percentage="Math.min(item.usage_percent, 100)"
+          :status="item.usage_percent >= 90 ? 'exception' : item.usage_percent >= 70 ? 'warning' : 'success'"
+          :stroke-width="12"
+          :show-text="false"
+        />
+        <div v-if="item.usage_percent !== null" class="capacity-percent" :class="{ 'capacity-warning': item.usage_percent >= 90 }">
+          {{ item.usage_percent }}%
+        </div>
+      </div>
+    </el-card>
+
     <!-- Tables -->
     <el-row :gutter="24" class="mt-24">
       <el-col :span="12">
@@ -104,8 +129,10 @@ import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import { getDashboardSummary, getBackupTrends, getAlerts, getStorageUsage } from '../api/common'
 import { getBackups } from '../api/backups'
+import { getAllStorageCapacity } from '../api/storages'
 import { getDatabases } from '../api/databases'
 import { useAuthStore } from '../stores/auth'
+import { formatBytes } from '../utils/format'
 
 const stats = ref({})
 const recentBackups = ref([])
@@ -114,6 +141,7 @@ const databaseMap = ref({})
 const trendChartRef = ref(null)
 const { t } = useI18n()
 const storageChartRef = ref(null)
+const storageCapacityList = ref([])
 
 let trendChart = null
 let storageChart = null
@@ -210,6 +238,13 @@ onMounted(async () => {
     stats.value = summaryRes.data || {}
   } catch {
     stats.value = {}
+  }
+
+  try {
+    const capacityRes = await getAllStorageCapacity()
+    storageCapacityList.value = capacityRes.data || []
+  } catch {
+    storageCapacityList.value = []
   }
 
   try {
@@ -333,5 +368,43 @@ onBeforeUnmount(() => {
 
 .table-card .el-table {
   border-radius: 0 0 12px 12px;
+}
+
+.capacity-item {
+  margin-bottom: 20px;
+}
+
+.capacity-item:last-child {
+  margin-bottom: 0;
+}
+
+.capacity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.capacity-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-color);
+}
+
+.capacity-text {
+  font-size: 13px;
+  color: var(--text-color-light);
+}
+
+.capacity-percent {
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-color-light);
+  margin-top: 4px;
+}
+
+.capacity-warning {
+  color: #f56c6c;
+  font-weight: 600;
 }
 </style>

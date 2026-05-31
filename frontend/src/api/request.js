@@ -26,7 +26,7 @@ api.interceptors.response.use(
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         router.push('/login')
-        ElMessage.warning('Session expired. Please sign in again.')
+        if (!silent) ElMessage.warning('Session expired. Please sign in again.')
       } else if (status === 403) {
         ElMessage.error('Access Denied: Insufficient permissions.')
       } else {
