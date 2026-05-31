@@ -1,0 +1,176 @@
+/* Modern Enterprise (Slate/Blue) Theme Variables */
+:root {
+  /* Slate Light Theme */
+  --bg-color: #f8fafc;
+  --bg-color-mute: #f1f5f9;
+  --card-bg: #ffffff;
+  --text-color: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  
+  --primary: #2563eb;
+  --primary-hover: #3b82f6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  --sidebar-bg: #0f172a;
+  --sidebar-text: #94a3b8;
+  --sidebar-active-bg: #1e293b;
+  --sidebar-active-text: #38bdf8;
+
+  --el-color-primary: var(--primary);
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--danger);
+  --el-color-info: var(--text-muted);
+
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 20px;
+
+  --el-box-shadow-light: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --el-box-shadow-base: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+  --main-bg: var(--bg-color);
+
+  --el-bg-color: var(--card-bg);
+  --el-bg-color-overlay: var(--card-bg);
+  --el-text-color-primary: var(--text-color);
+  --el-text-color-regular: var(--text-muted);
+  --el-border-color-light: var(--border-color);
+  --el-fill-color-blank: var(--card-bg);
+}
+
+html.dark {
+  /* Slate Dark Theme */
+  --bg-color: #020617;
+  --bg-color-mute: #0f172a;
+  --card-bg: #1e293b;
+  --text-color: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #334155;
+  
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+
+  --sidebar-bg: #020617;
+  --sidebar-text: #94a3b8;
+  --sidebar-active-bg: #1e293b;
+  --sidebar-active-text: #38bdf8;
+
+  --el-box-shadow-light: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --el-box-shadow-base: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  /* Element plus dark overrides */
+  --el-bg-color: var(--card-bg);
+  --el-bg-color-overlay: var(--bg-color-mute);
+  --el-text-color-primary: var(--text-color);
+  --el-border-color: var(--border-color);
+  --el-border-color-light: var(--border-color);
+  --el-fill-color-blank: var(--card-bg);
+  --el-fill-color: var(--bg-color-mute);
+  --el-mask-color: rgba(2, 6, 23, 0.8);
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--main-bg);
+  color: var(--text-color);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Card overrides */
+.el-card {
+  border: 1px solid var(--border-color) !important;
+  background-color: var(--card-bg) !important;
+  color: var(--text-color) !important;
+  box-shadow: var(--el-box-shadow-light) !important;
+  border-radius: 12px !important;
+  transition: all 0.3s ease;
+}
+.el-card:hover {
+  box-shadow: var(--el-box-shadow-base) !important;
+}
+.el-card__header {
+  border-bottom: 1px solid var(--border-color) !important;
+  padding: 20px 24px !important;
+}
+
+/* Button overrides */
+.el-button {
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+}
+
+/* Table overrides */
+.el-table {
+  --el-table-border-color: var(--border-color);
+  --el-table-header-bg-color: var(--bg-color-mute);
+  --el-table-header-text-color: var(--text-muted);
+  --el-table-tr-bg-color: var(--card-bg);
+  --el-table-row-hover-bg-color: var(--bg-color-mute);
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.el-table th.el-table__cell {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  padding: 12px 0 !important;
+  background-color: var(--bg-color-mute) !important;
+}
+.el-table td.el-table__cell {
+  padding: 12px 0 !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+/* Pagination */
+.el-pagination {
+  --el-pagination-hover-color: var(--el-color-primary);
+  --el-pagination-bg-color: var(--card-bg);
+  --el-pagination-text-color: var(--text-color);
+  --el-pagination-button-color: var(--text-color);
+  --el-pagination-button-disabled-color: var(--text-muted);
+  --el-pagination-button-disabled-bg-color: var(--bg-color-mute);
+}
+
+/* Global Dialog Polish */
+.el-dialog {
+  border-radius: 12px !important;
+  overflow: hidden;
+  background-color: var(--card-bg) !important;
+}
+.el-dialog__title {
+  color: var(--text-color) !important;
+}
+.el-dialog__header {
+  margin-right: 0 !important;
+  border-bottom: 1px solid var(--border-color);
+  padding: 20px 24px !important;
+}
+.el-dialog__body {
+  padding: 24px !important;
+  color: var(--text-muted) !important;
+}
+.el-dialog__footer {
+  border-top: 1px solid var(--border-color);
+  padding: 16px 24px !important;
+}
+
+/* Form inputs */
+.el-input__wrapper, .el-select__wrapper {
+  background-color: var(--bg-color-mute) !important;
+  box-shadow: 0 0 0 1px var(--border-color) inset !important;
+}
+.el-input__wrapper.is-focus, .el-select__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
+}
+.el-input__inner {
+  color: var(--text-color) !important;
+}
+

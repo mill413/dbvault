@@ -3,102 +3,102 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>定时任务列表</span>
+          <span>{{ $t('job.list') }}</span>
           <div class="header-filters">
-            <el-input v-model="searchName" placeholder="搜索任务名称" clearable style="width: 180px" />
-            <el-select v-model="filterEnabled" placeholder="启用状态" clearable style="width: 120px">
-              <el-option label="启用" :value="true" />
+            <el-input v-model="searchName" :placeholder="$t('job.searchName')" clearable style="width: 180px" />
+            <el-select v-model="filterEnabled" :placeholder="$t('job.statusFilter')" clearable style="width: 120px">
+              <el-option :label="$t('job.enabled')" :value="true" />
               <el-option label="停用" :value="false" />
             </el-select>
             <el-button type="primary" @click="showCreateDialog">
               <el-icon><Plus /></el-icon>
-              新增任务
+              {{ $t('common.add') }}
             </el-button>
           </div>
         </div>
       </template>
 
-      <el-table :data="filteredJobs" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredJobs" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="name" label="任务名称" />
-        <el-table-column label="数据库">
+        <el-table-column prop="name" :label="$t('job.name')" />
+        <el-table-column :label="$t('dashboard.database')">
           <template #default="{ row }">
             {{ getDatabaseName(row.database_id) }}
           </template>
         </el-table-column>
-        <el-table-column label="存储" width="120">
+        <el-table-column :label="$t('common.storage')" width="120">
           <template #default="{ row }">
             {{ getStorageName(row.storage_id) }}
           </template>
         </el-table-column>
-        <el-table-column prop="schedule_type" label="调度类型" width="100">
+        <el-table-column prop="schedule_type" :label="$t('job.scheduleType')" width="100">
           <template #default="{ row }">
             <el-tag size="small">{{ getScheduleLabel(row.schedule_type) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="cron_expr" label="Cron表达式" width="120" />
-        <el-table-column prop="enabled" label="状态" width="100">
+        <el-table-column prop="cron_expr" :label="$t('job.cronExpr')" width="120" />
+        <el-table-column prop="enabled" :label="$t('common.status')" width="100">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="handleToggle(row)" />
           </template>
         </el-table-column>
-        <el-table-column prop="last_status" label="上次执行" width="100">
+        <el-table-column prop="last_status" :label="$t('job.lastRun')" width="100">
           <template #default="{ row }">
             <el-tag v-if="row.last_status" :type="getStatusType(row.last_status)" size="small">{{ row.last_status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="next_run_at" label="下次执行" width="180">
+        <el-table-column prop="next_run_at" :label="$t('job.nextRun')" width="180">
           <template #default="{ row }">
             {{ row.next_run_at ? formatDate(row.next_run_at) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column :label="$t('common.actions')" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="showEditDialog(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" type="primary" @click="showEditDialog(row)">{{ $t('common.edit') }}</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)">{{ $t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑任务' : '新增任务'" width="600px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? $t('job.editJob') : $t('job.addJob')" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="任务名称" prop="name">
+        <el-form-item :label="$t('job.name')" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="数据库" prop="database_id">
+        <el-form-item :label="$t('dashboard.database')" prop="database_id">
           <el-select v-model="form.database_id" style="width: 100%" placeholder="选择数据库">
             <el-option v-for="db in databases" :key="db.id" :label="db.name" :value="db.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="存储" prop="storage_id">
+        <el-form-item :label="$t('common.storage')" prop="storage_id">
           <el-select v-model="form.storage_id" style="width: 100%" placeholder="选择存储">
             <el-option v-for="s in storages" :key="s.id" :label="s.name" :value="s.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="调度类型" prop="schedule_type">
+        <el-form-item :label="$t('job.scheduleType')" prop="schedule_type">
           <el-select v-model="form.schedule_type" style="width: 100%">
             <el-option label="Cron" value="cron" />
             <el-option label="间隔" value="interval" />
             <el-option label="一次性" value="once" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.schedule_type === 'cron'" label="Cron表达式" prop="cron_expr">
+        <el-form-item v-if="form.schedule_type === 'cron'" :label="$t('job.cronExpr')" prop="cron_expr">
           <el-input v-model="form.cron_expr" placeholder="0 2 * * *" />
         </el-form-item>
-        <el-form-item v-if="form.schedule_type === 'interval'" label="间隔(秒)" prop="interval_seconds">
+        <el-form-item v-if="form.schedule_type === 'interval'" :label="$t('job.intervalSec')" prop="interval_seconds">
           <el-input-number v-model="form.interval_seconds" :min="60" style="width: 100%" />
         </el-form-item>
-        <el-form-item v-if="form.schedule_type === 'once'" label="执行时间" prop="run_at">
+        <el-form-item v-if="form.schedule_type === 'once'" :label="$t('job.runAt')" prop="run_at">
           <el-date-picker v-model="form.run_at" type="datetime" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="压缩方式">
+        <el-form-item :label="$t('backup.compression')">
           <el-select v-model="form.backup_config.compression" style="width: 100%">
             <el-option label="zstd" value="zstd" />
             <el-option label="gzip" value="gzip" />
           </el-select>
         </el-form-item>
-        <el-form-item label="保留天数">
+        <el-form-item :label="$t('backup.retentionDays')">
           <el-input-number v-model="form.retention_days" :min="1" :max="365" style="width: 100%" />
         </el-form-item>
         <el-form-item label="启用">
@@ -106,8 +106,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+        <el-button @click="dialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitting">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -115,6 +115,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getJobs, createJob, updateJob, deleteJob, enableJob, disableJob } from '../api/jobs'
@@ -132,6 +133,7 @@ const editId = ref(null)
 const formRef = ref(null)
 const searchName = ref('')
 const filterEnabled = ref(null)
+const { t } = useI18n()
 
 const form = reactive({
   name: '',
@@ -303,7 +305,7 @@ const handleToggle = async (row) => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(`确定要删除任务 "${row.name}" 吗？`, '确认删除', { type: 'warning' })
+    await ElMessageBox.confirm(t('job.deleteConfirm', { name: row.name }), t('common.confirm'), { type: 'warning' })
     await deleteJob(row.id)
     ElMessage.success('删除成功')
     fetchData()

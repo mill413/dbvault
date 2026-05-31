@@ -3,9 +3,9 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>恢复管理</span>
+          <span>{{ $t('restore.title') }}</span>
           <div class="header-filters">
-            <el-select v-model="filterStatus" placeholder="状态筛选" clearable style="width: 140px" @change="fetchData">
+            <el-select v-model="filterStatus" :placeholder="$t('restore.statusFilter')" clearable style="width: 140px" @change="fetchData">
               <el-option label="完成" value="COMPLETED" />
               <el-option label="运行中" value="RUNNING" />
               <el-option label="失败" value="FAILED" />
@@ -14,46 +14,46 @@
             </el-select>
             <el-button type="primary" @click="showRestoreDialog">
               <el-icon><Download /></el-icon>
-              恢复备份
+              {{ $t('restore.restoreBackup') }}
             </el-button>
           </div>
         </div>
       </template>
 
-      <el-table :data="restoreTasks" v-loading="loading" style="width: 100%">
-        <el-table-column prop="id" label="任务ID" width="80" />
-        <el-table-column prop="backup_id" label="备份ID" width="100" />
-        <el-table-column label="目标数据库" width="150">
+      <el-table :data="restoreTasks" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
+        <el-table-column prop="id" :label="$t('restore.taskId')" width="80" />
+        <el-table-column prop="backup_id" :label="$t('restore.backupId')" width="100" />
+        <el-table-column :label="$t('restore.targetDb')" width="150">
           <template #default="{ row }">
             {{ getDatabaseName(row.target_database_id) || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="restore_mode" label="恢复模式" width="120" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="restore_mode" :label="$t('restore.restoreMode')" width="120" />
+        <el-table-column prop="status" :label="$t('common.status')" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="phase" label="阶段" width="100" />
-        <el-table-column prop="progress" label="进度" width="100">
+        <el-table-column prop="phase" :label="$t('restore.phase')" width="100" />
+        <el-table-column prop="progress" :label="$t('restore.progress')" width="100">
           <template #default="{ row }">
             {{ row.progress }}%
           </template>
         </el-table-column>
-        <el-table-column prop="error_message" label="错误信息" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="duration_seconds" label="耗时(秒)" width="100">
+        <el-table-column prop="error_message" :label="$t('restore.errorMsg')" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="duration_seconds" :label="$t('restore.duration')" width="100">
           <template #default="{ row }">
             {{ row.duration_seconds ? row.duration_seconds.toFixed(1) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="180">
+        <el-table-column :label="$t('common.createTime')" width="180">
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column :label="$t('common.actions')" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="showEvents(row)">详情</el-button>
+            <el-button size="small" @click="showEvents(row)">{{ $t('common.details') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -70,9 +70,9 @@
       />
     </el-card>
 
-    <el-dialog v-model="restoreDialogVisible" title="恢复备份" width="600px">
+    <el-dialog v-model="restoreDialogVisible" :title="$t('restore.restoreBackup')" width="600px">
       <el-form :model="restoreForm" :rules="restoreRules" ref="restoreFormRef" label-width="120px">
-        <el-form-item label="选择备份" prop="backup_id">
+        <el-form-item :label="$t('restore.restoreBackup')" prop="backup_id">
           <el-select v-model="restoreForm.backup_id" filterable placeholder="请选择备份" style="width: 100%">
             <el-option
               v-for="backup in backups"
@@ -82,7 +82,7 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="目标数据库" prop="target_database_id" v-if="restoreForm.restore_mode === 'NEW_INSTANCE'">
+        <el-form-item :label="$t('restore.targetDb')" prop="target_database_id" v-if="restoreForm.restore_mode === 'NEW_INSTANCE'">
           <el-select v-model="restoreForm.target_database_id" filterable placeholder="请先选择备份" :disabled="!restoreForm.backup_id" style="width: 100%">
             <el-option
               v-for="db in availableTargetDatabases"
@@ -92,10 +92,10 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="目标数据库" v-if="restoreForm.restore_mode === 'ORIGINAL_INSTANCE'">
+        <el-form-item :label="$t('restore.targetDb')" v-if="restoreForm.restore_mode === 'ORIGINAL_INSTANCE'">
           <el-input :value="sourceDatabaseDisplay" disabled />
         </el-form-item>
-        <el-form-item label="恢复模式" prop="restore_mode">
+        <el-form-item :label="$t('restore.restoreMode')" prop="restore_mode">
           <el-select v-model="restoreForm.restore_mode" style="width: 100%" @change="onRestoreModeChange">
             <el-option label="恢复到新实例" value="NEW_INSTANCE" />
             <el-option label="原实例恢复" value="ORIGINAL_INSTANCE" />
@@ -103,7 +103,7 @@
         </el-form-item>
         <el-form-item v-if="dryRunResult">
           <el-alert
-            :title="dryRunResult.ok ? '预检查通过' : '预检查未通过'"
+            :title="dryRunResult.ok ? t('restore.dryRunPass') : t('restore.dryRunFail')"
             :type="dryRunResult.ok ? 'success' : 'error'"
             :description="dryRunResult.message"
             show-icon
@@ -112,46 +112,46 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="restoreDialogVisible = false">取消</el-button>
-        <el-button @click="handleDryRun" :loading="dryRunLoading">预检查</el-button>
-        <el-button type="primary" @click="handleRestore" :loading="restoreLoading">开始恢复</el-button>
+        <el-button @click="restoreDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button @click="handleDryRun" :loading="dryRunLoading">{{ $t('restore.dryRun') }}</el-button>
+        <el-button type="primary" @click="handleRestore" :loading="restoreLoading">{{ $t('restore.startRestore') }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="confirmDialogVisible" title="确认恢复" width="500px">
+    <el-dialog v-model="confirmDialogVisible" :title="$t('restore.confirmRestore')" width="500px">
       <el-alert
-        title="高风险操作"
-        description="您正在执行原实例恢复操作，这将覆盖目标数据库的所有数据。"
+        :title="$t('restore.highRisk')"
+        :description="$t('restore.highRiskDesc')"
         type="error"
         :closable="false"
         show-icon
         style="margin-bottom: 20px"
       />
-      <p style="margin-bottom: 10px">请输入 <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px">{{ currentTask?.confirm_required }}</code> 以确认：</p>
+      <p style="margin-bottom: 10px">{{ $t('restore.confirmPrompt', { text: currentTask?.confirm_required }) }}</p>
       <el-input v-model="confirmText" placeholder="输入确认文本" />
       <template #footer>
-        <el-button @click="confirmDialogVisible = false">取消</el-button>
-        <el-button type="danger" @click="submitRestore" :loading="restoreLoading" :disabled="confirmText !== currentTask?.confirm_required">确认恢复</el-button>
+        <el-button @click="confirmDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="danger" @click="submitRestore" :loading="restoreLoading" :disabled="confirmText !== currentTask?.confirm_required">{{ $t('restore.confirmRestore') }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="eventsDialogVisible" title="任务详情" width="700px">
+    <el-dialog v-model="eventsDialogVisible" :title="$t('restore.taskDetails')" width="700px">
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="任务ID">{{ currentTask?.id }}</el-descriptions-item>
-        <el-descriptions-item label="备份ID">{{ currentTask?.backup_id }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ currentTask?.status }}</el-descriptions-item>
-        <el-descriptions-item label="阶段">{{ currentTask?.phase }}</el-descriptions-item>
-        <el-descriptions-item label="进度">{{ currentTask?.progress }}%</el-descriptions-item>
+        <el-descriptions-item :label="$t('restore.taskId')">{{ currentTask?.id }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('restore.backupId')">{{ currentTask?.backup_id }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('common.status')">{{ currentTask?.status }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('restore.phase')">{{ currentTask?.phase }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('restore.progress')">{{ currentTask?.progress }}%</el-descriptions-item>
         <el-descriptions-item label="耗时">{{ currentTask?.duration_seconds ? currentTask.duration_seconds.toFixed(1) + 's' : '-' }}</el-descriptions-item>
-        <el-descriptions-item label="错误信息" :span="2">{{ currentTask?.error_message || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('restore.errorMsg')" :span="2">{{ currentTask?.error_message || '-' }}</el-descriptions-item>
       </el-descriptions>
       <div style="margin-top: 20px">
-        <h4>执行日志</h4>
-        <el-table :data="events" style="width: 100%" max-height="300">
+        <h4>{{ $t('restore.logs') }}</h4>
+        <el-table :data="events" style="width: 100%" max-height="300" size="default" empty-text="No data available">
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="event_type" label="事件类型" width="120" />
-          <el-table-column prop="message" label="消息" min-width="200" show-overflow-tooltip />
-          <el-table-column label="时间" width="180">
+          <el-table-column prop="message" :label="$t('alert.message')" min-width="200" show-overflow-tooltip />
+          <el-table-column :label="$t('common.time')" width="180">
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>
@@ -164,6 +164,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { getRestoreTasks, runRestore, getRestoreTaskEvents, dryRunRestore } from '../api/restores'
@@ -188,6 +189,7 @@ const pageSize = ref(20)
 const total = ref(0)
 const filterStatus = ref('')
 const confirmText = ref('')
+const { t } = useI18n()
 
 const restoreForm = reactive({
   backup_id: null,

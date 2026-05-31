@@ -3,21 +3,21 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>备份列表</span>
+          <span>{{ $t('backup.list') }}</span>
           <div class="header-filters">
-            <el-select v-model="filterStatus" placeholder="状态筛选" clearable style="width: 140px" @change="fetchData">
+            <el-select v-model="filterStatus" :placeholder="$t('backup.statusFilter')" clearable style="width: 140px" @change="fetchData">
               <el-option label="可用" value="AVAILABLE" />
               <el-option label="完成" value="COMPLETED" />
               <el-option label="运行中" value="RUNNING" />
               <el-option label="失败" value="FAILED" />
               <el-option label="待处理" value="PENDING" />
             </el-select>
-            <el-select v-model="filterDatabaseId" placeholder="选择数据库" clearable style="width: 180px" @change="fetchData">
+            <el-select v-model="filterDatabaseId" :placeholder="$t('backup.selectDb')" clearable style="width: 180px" @change="fetchData">
               <el-option v-for="db in databases" :key="db.id" :label="db.name" :value="db.id" />
             </el-select>
             <el-button type="primary" @click="showBackupDialog">
               <el-icon><Upload /></el-icon>
-              立即备份
+              {{ $t('backup.runBackup') }}
             </el-button>
           </div>
         </div>
@@ -25,38 +25,38 @@
 
       <el-table :data="backups" v-loading="loading" style="width: 100%">
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column label="数据库">
+        <el-table-column :label="$t('dashboard.database')">
           <template #default="{ row }">
             {{ getDatabaseName(row.database_id) }}
           </template>
         </el-table-column>
-        <el-table-column label="存储" width="120">
+        <el-table-column :label="$t('common.storage')" width="120">
           <template #default="{ row }">
             {{ getStorageName(row.storage_id) }}
           </template>
         </el-table-column>
-        <el-table-column prop="backup_type" label="类型" width="100" />
-        <el-table-column prop="status" label="状态" width="120">
+        <el-table-column prop="backup_type" :label="$t('backup.type')" width="100" />
+        <el-table-column prop="status" :label="$t('common.status')" width="120">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="size_bytes" label="大小" width="120">
+        <el-table-column prop="size_bytes" :label="$t('backup.size')" width="120">
           <template #default="{ row }">
             {{ formatSize(row.size_bytes) }}
           </template>
         </el-table-column>
-        <el-table-column prop="compression" label="压缩" width="80" />
-        <el-table-column label="创建时间" width="180">
+        <el-table-column prop="compression" :label="$t('backup.compression')" width="80" />
+        <el-table-column :label="$t('common.createTime')" width="180">
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column :label="$t('common.actions')" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="handleVerify(row)" :disabled="row.status !== 'AVAILABLE'">校验</el-button>
-            <el-button size="small" type="primary" @click="handleDownload(row)">下载</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" @click="handleVerify(row)" :disabled="row.status !== 'AVAILABLE'">{{ $t('backup.verify') }}</el-button>
+            <el-button size="small" type="primary" @click="handleDownload(row)">{{ $t('backup.download') }}</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)">{{ $t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -73,32 +73,32 @@
       />
     </el-card>
 
-    <el-dialog v-model="backupDialogVisible" title="立即备份" width="500px">
+    <el-dialog v-model="backupDialogVisible" :title="$t('backup.runBackup')" width="500px">
       <el-form :model="backupForm" :rules="backupRules" ref="backupFormRef" label-width="100px">
-        <el-form-item label="数据库" prop="database_id">
+        <el-form-item :label="$t('dashboard.database')" prop="database_id">
           <el-select v-model="backupForm.database_id" style="width: 100%" placeholder="选择数据库">
             <el-option v-for="db in databases" :key="db.id" :label="db.name" :value="db.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="存储" prop="storage_id">
+        <el-form-item :label="$t('common.storage')" prop="storage_id">
           <el-select v-model="backupForm.storage_id" style="width: 100%" placeholder="选择存储">
             <el-option v-for="s in storages" :key="s.id" :label="s.name" :value="s.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="压缩方式">
+        <el-form-item :label="$t('backup.compression')">
           <el-select v-model="backupForm.compression" style="width: 100%">
             <el-option label="zstd" value="zstd" />
             <el-option label="gzip" value="gzip" />
             <el-option label="无" value="none" />
           </el-select>
         </el-form-item>
-        <el-form-item label="保留天数">
+        <el-form-item :label="$t('backup.retentionDays')">
           <el-input-number v-model="backupForm.retention_days" :min="1" :max="365" style="width: 100%" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="backupDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleBackup" :loading="backupLoading">开始备份</el-button>
+        <el-button @click="backupDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleBackup" :loading="backupLoading">{{ $t('backup.runBackup') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -106,6 +106,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getBackups, runBackup, deleteBackup, verifyBackup, downloadBackup } from '../api/backups'
@@ -122,6 +123,7 @@ const backupFormRef = ref(null)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const { t } = useI18n()
 const filterStatus = ref('')
 const filterDatabaseId = ref(null)
 
@@ -215,7 +217,7 @@ const handleBackup = async () => {
       compression: backupForm.compression,
       retention: { keep_days: backupForm.retention_days },
     })
-    ElMessage.success('备份任务已提交')
+    ElMessage.success(t('backup.backupSubmitted'))
     backupDialogVisible.value = false
     fetchData()
   } catch (error) {
@@ -228,7 +230,7 @@ const handleBackup = async () => {
 const handleVerify = async (row) => {
   try {
     await verifyBackup(row.id)
-    ElMessage.success('校验任务已提交')
+    ElMessage.success(t('backup.verifySubmitted'))
   } catch (error) {
     console.error('Failed to verify:', error)
   }
@@ -251,7 +253,7 @@ const handleDownload = async (row) => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(`确定要删除备份 "${row.filename}" 吗？`, '确认删除', { type: 'warning' })
+    await ElMessageBox.confirm(t('backup.deleteConfirm', { name: row.filename }), t('common.confirm'), { type: 'warning' })
     await deleteBackup(row.id)
     ElMessage.success('删除成功')
     fetchData()
