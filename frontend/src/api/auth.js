@@ -4,6 +4,10 @@ export function login(data) {
   return api.post('/auth/login', data)
 }
 
+export function register(data) {
+  return api.post('/auth/register', data)
+}
+
 export function refreshToken(data) {
   return api.post('/auth/refresh', data)
 }
@@ -18,4 +22,8 @@ export function getCurrentUser() {
 
 export function changePassword(data) {
   return api.post('/auth/change-password', data)
+}
+
+export function getPublicConfig() {
+  return api.get('/auth/public-config', { silent: true })
 }

@@ -28,7 +28,7 @@ api.interceptors.response.use(
         router.push('/login')
         ElMessage.warning('Session expired. Please sign in again.')
       } else if (status === 403) {
-        if (!silent) ElMessage.error('Access Denied: Insufficient permissions.')
+        ElMessage.error('Access Denied: Insufficient permissions.')
       } else {
         if (!silent) ElMessage.error(data?.error?.message || data?.detail || 'Operation failed. Please try again.')
       }
