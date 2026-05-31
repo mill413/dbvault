@@ -130,6 +130,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStorages, createStorage, updateStorage, deleteStorage, testStorage as testStorageApi } from '../api/storages'
+import { formatBytes as formatSize } from '../utils/format'
 
 const storages = ref([])
 const loading = ref(false)
@@ -172,13 +173,6 @@ const filteredStorages = computed(() => {
   return result
 })
 
-const formatSize = (bytes) => {
-  if (!bytes) return '-'
-  const gb = bytes / (1024 * 1024 * 1024)
-  if (gb >= 1024) return `${(gb / 1024).toFixed(1)} TB`
-  return `${gb.toFixed(1)} GB`
-}
-
 const fetchData = async () => {
   loading.value = true
   try {
@@ -213,6 +207,7 @@ const showEditDialog = (row) => {
     storage_type: row.storage_type,
     config: {},
     is_default: row.is_default,
+    capacity_limit_gb: row.capacity_limit_bytes ? row.capacity_limit_bytes / (1024 ** 3) : null,
   })
   dialogVisible.value = true
 }

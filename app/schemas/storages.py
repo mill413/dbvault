@@ -11,7 +11,7 @@ class StorageCreate(BaseModel):
     storage_type: str
     config: dict[str, Any]
     is_default: bool = False
-    capacity_limit_bytes: int | None = None
+    capacity_limit_bytes: int | None = Field(default=None, ge=0)
 
 
 class StorageUpdate(BaseModel):
@@ -19,7 +19,7 @@ class StorageUpdate(BaseModel):
     config: dict[str, Any] | None = None
     is_default: bool | None = None
     status: str | None = None
-    capacity_limit_bytes: int | None = None
+    capacity_limit_bytes: int | None = Field(default=None, ge=0)
 
 
 class StorageRead(ORMModel):
