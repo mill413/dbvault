@@ -16,17 +16,25 @@
           <h2>{{ $t('register.title') }}</h2>
           <p>{{ $t('register.subtitle') }}</p>
         </div>
-        <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handleRegister" size="large">
-          <el-form-item prop="username">
+        <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handleRegister" size="large" label-position="top">
+          <el-form-item :label="$t('register.usernameLabel')" prop="username">
             <el-input v-model="form.username" :placeholder="$t('register.usernamePlaceholder')" prefix-icon="User" />
           </el-form-item>
           <el-form-item prop="display_name">
+            <template #label>
+              {{ $t('register.displayNameLabel') }}
+              <span class="optional-tag">({{ $t('register.optional') }})</span>
+            </template>
             <el-input v-model="form.display_name" :placeholder="$t('register.displayNamePlaceholder')" prefix-icon="UserFilled" />
           </el-form-item>
           <el-form-item prop="email">
+            <template #label>
+              {{ $t('register.emailLabel') }}
+              <span class="optional-tag">({{ $t('register.optional') }})</span>
+            </template>
             <el-input v-model="form.email" :placeholder="$t('register.emailPlaceholder')" prefix-icon="Message" />
           </el-form-item>
-          <el-form-item prop="password">
+          <el-form-item :label="$t('register.passwordLabel')" prop="password">
             <el-input
               v-model="form.password"
               type="password"
@@ -34,8 +42,12 @@
               prefix-icon="Lock"
               show-password
             />
+            <div class="field-hint">
+              <el-icon><InfoFilled /></el-icon>
+              {{ $t('register.passwordHint') }}
+            </div>
           </el-form-item>
-          <el-form-item prop="confirmPassword">
+          <el-form-item :label="$t('register.confirmPasswordLabel')" prop="confirmPassword">
             <el-input
               v-model="form.confirmPassword"
               type="password"
@@ -65,6 +77,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { register, getPublicConfig } from '../api/auth'
 import { ElMessage } from 'element-plus'
+import { InfoFilled } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const formRef = ref(null)
@@ -259,5 +272,27 @@ const handleRegister = async () => {
 
 :deep(.el-input__inner) {
   height: 48px;
+}
+
+.field-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #909399;
+  margin-top: 6px;
+  line-height: 1;
+}
+
+.optional-tag {
+  font-size: 12px;
+  color: #909399;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+:deep(.el-form-item__label) {
+  font-weight: 500;
+  color: #303133;
 }
 </style>

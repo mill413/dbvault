@@ -54,7 +54,15 @@ export default {
     usernamePlaceholder: '请输入用户名',
     displayNamePlaceholder: '请输入显示名称',
     emailPlaceholder: '请输入邮箱',
-    passwordMismatch: '两次输入的密码不一致'
+    passwordMismatch: '两次输入的密码不一致',
+    usernameLabel: '用户名',
+    displayNameLabel: '显示名称',
+    emailLabel: '邮箱',
+    passwordLabel: '密码',
+    confirmPasswordLabel: '确认密码',
+    passwordHint: '至少 12 位字符',
+    optional: '可选',
+    required: '必填'
   },
   dashboard: {
     totalDatabases: '数据库实例',

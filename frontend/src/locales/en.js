@@ -54,7 +54,15 @@ export default {
     usernamePlaceholder: 'Enter username',
     displayNamePlaceholder: 'Enter display name',
     emailPlaceholder: 'Enter email',
-    passwordMismatch: 'Passwords do not match'
+    passwordMismatch: 'Passwords do not match',
+    usernameLabel: 'Username',
+    displayNameLabel: 'Display Name',
+    emailLabel: 'Email',
+    passwordLabel: 'Password',
+    confirmPasswordLabel: 'Confirm Password',
+    passwordHint: 'At least 12 characters',
+    optional: 'Optional',
+    required: 'Required'
   },
   dashboard: {
     totalDatabases: 'Total Databases',
