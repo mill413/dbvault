@@ -27,7 +27,8 @@ export default {
     details: 'Details',
     updateSuccess: 'Updated successfully',
     createSuccess: 'Created successfully',
-    deleteSuccess: 'Deleted successfully'
+    deleteSuccess: 'Deleted successfully',
+    accessDenied: 'Access denied. You do not have permission to view this page.'
   },
   login: {
     title: 'Secure. Reliable. Database Management.',

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { canViewRoute } from '../utils/permissions'
 
 const routes = [
   {
@@ -95,6 +96,11 @@ router.beforeEach(async (to, from, next) => {
       if (!authStore.user) {
         return next('/login')
       }
+    }
+
+    const role = authStore.user?.role
+    if (role && !canViewRoute(role, to.name)) {
+      return next({ path: '/dashboard', query: { denied: '1' } })
     }
   }
 

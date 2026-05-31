@@ -13,39 +13,39 @@
         text-color="var(--sidebar-text)"
         active-text-color="var(--sidebar-active-text)"
       >
-        <el-menu-item index="/dashboard">
+        <el-menu-item v-if="canView('Dashboard')" index="/dashboard">
           <el-icon><Odometer /></el-icon>
           <span>{{ $t('common.dashboard') }}</span>
         </el-menu-item>
-        <el-menu-item index="/databases">
+        <el-menu-item v-if="canView('Databases')" index="/databases">
           <el-icon><Coin /></el-icon>
           <span>{{ $t('common.databases') }}</span>
         </el-menu-item>
-        <el-menu-item index="/storages">
+        <el-menu-item v-if="canView('Storages')" index="/storages">
           <el-icon><Files /></el-icon>
           <span>{{ $t('common.storage') }}</span>
         </el-menu-item>
-        <el-menu-item index="/backups">
+        <el-menu-item v-if="canView('Backups')" index="/backups">
           <el-icon><Upload /></el-icon>
           <span>{{ $t('common.backups') }}</span>
         </el-menu-item>
-        <el-menu-item index="/jobs">
+        <el-menu-item v-if="canView('Jobs')" index="/jobs">
           <el-icon><Clock /></el-icon>
           <span>{{ $t('common.schedules') }}</span>
         </el-menu-item>
-        <el-menu-item index="/audit">
+        <el-menu-item v-if="canView('Audit')" index="/audit">
           <el-icon><Document /></el-icon>
           <span>{{ $t('common.auditLogs') }}</span>
         </el-menu-item>
-        <el-menu-item index="/restores">
+        <el-menu-item v-if="canView('Restores')" index="/restores">
           <el-icon><Download /></el-icon>
           <span>{{ $t('common.restores') }}</span>
         </el-menu-item>
-        <el-menu-item index="/alerts">
+        <el-menu-item v-if="canView('Alerts')" index="/alerts">
           <el-icon><Warning /></el-icon>
           <span>{{ $t('common.alerts') }}</span>
         </el-menu-item>
-        <el-menu-item index="/users">
+        <el-menu-item v-if="canView('Users')" index="/users">
           <el-icon><UserFilled /></el-icon>
           <span>{{ $t('common.users') }}</span>
         </el-menu-item>
@@ -104,6 +104,7 @@ import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 import { Moon, Sunny } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import { canViewRoute } from '../utils/permissions'
 
 const route = useRoute()
 const router = useRouter()
@@ -112,6 +113,8 @@ const { t } = useI18n()
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => route.meta.title || '')
+const userRole = computed(() => authStore.user?.role || '')
+const canView = (name) => canViewRoute(userRole.value, name)
 
 const isDark = ref(localStorage.getItem('theme') === 'dark')
 
@@ -128,6 +131,11 @@ const toggleDark = (val) => {
 onMounted(() => {
   if (isDark.value) {
     document.documentElement.classList.add('dark')
+  }
+
+  if (route.query.denied === '1') {
+    ElMessage.warning(t('common.accessDenied'))
+    router.replace({ path: route.path, query: {} })
   }
 })
 

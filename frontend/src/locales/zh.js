@@ -27,7 +27,8 @@ export default {
     details: '详情',
     updateSuccess: '更新成功',
     createSuccess: '创建成功',
-    deleteSuccess: '删除成功'
+    deleteSuccess: '删除成功',
+    accessDenied: '权限不足，无法访问该页面'
   },
   login: {
     title: 'DBVault',
