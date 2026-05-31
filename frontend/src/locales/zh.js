@@ -62,6 +62,7 @@ export default {
     host: '主机',
     port: '端口',
     databaseName: '数据库名',
+    dbNamePlaceholder: '留空表示包含所有数据库',
     username: '用户名',
     password: '密码',
     enableSsl: '启用SSL',

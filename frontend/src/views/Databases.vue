@@ -95,7 +95,7 @@
           <el-input v-model="form.password" type="password" show-password />
         </el-form-item>
         <el-form-item :label="$t('database.databaseName')">
-          <el-input v-model="form.database_name" />
+          <el-input v-model="form.database_name" :placeholder="$t('database.dbNamePlaceholder')" />
         </el-form-item>
         <el-form-item :label="$t('database.env')">
           <el-select v-model="form.environment" style="width: 100%">

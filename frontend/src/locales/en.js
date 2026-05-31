@@ -62,6 +62,7 @@ export default {
     host: 'Host',
     port: 'Port',
     databaseName: 'Database Name',
+    dbNamePlaceholder: 'Leave empty to include all databases',
     username: 'Username',
     password: 'Password',
     enableSsl: 'Enable SSL',

@@ -4,15 +4,14 @@
     <el-row :gutter="24">
       <el-col :span="6" v-for="(stat, index) in statCards" :key="index">
         <el-card shadow="hover" class="stat-card">
-          <div class="stat-icon-wrapper" :style="{ backgroundColor: stat.bgColor }">
-            <el-icon :size="28" :style="{ color: stat.color }"><component :is="stat.icon" /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stat.value }}</div>
-            <div class="stat-label">{{ stat.label }}</div>
-          </div>
-          <div class="stat-bg-icon">
-            <el-icon><component :is="stat.icon" /></el-icon>
+          <div class="stat-card-content">
+            <div class="stat-info">
+              <div class="stat-label">{{ stat.label }}</div>
+              <div class="stat-value">{{ stat.value }}</div>
+            </div>
+            <div class="stat-icon-wrapper" :style="{ color: stat.color, backgroundColor: stat.bgColor }">
+              <el-icon :size="28"><component :is="stat.icon" /></el-icon>
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -259,11 +258,16 @@ onBeforeUnmount(() => {
   padding: 16px;
 }
 
-.stat-header {
+.stat-card-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .stat-label {
@@ -274,21 +278,21 @@ onBeforeUnmount(() => {
   letter-spacing: 0.5px;
 }
 
-.stat-icon-wrapper {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-}
-
 .stat-value {
   font-size: 32px;
   font-weight: 700;
   color: var(--text-color);
   line-height: 1;
+}
+
+.stat-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
 }
 
 .card-header {
