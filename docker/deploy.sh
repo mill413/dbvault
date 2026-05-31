@@ -8,19 +8,21 @@ usage() {
     echo "用法: $0 [选项]"
     echo ""
     echo "选项:"
-    echo "  -p <project>    指定项目名称（默认: dbvault）"
-    echo "  --build         构建镜像后再部署"
-    echo "  --no-build      使用已有镜像部署（默认）"
-    echo "  --api-only      仅构建/部署 API 服务"
-    echo "  --frontend-only 仅构建/部署前端服务"
-    echo "  --down          停止并删除所有容器"
-    echo "  --down-v        停止并删除所有容器和数据卷"
-    echo "  --help          显示帮助信息"
+    echo "  -p <project>             指定项目名称（默认: dbvault）"
+    echo "  -b, --build              构建镜像后再部署"
+    echo "  -n, --no-build           使用已有镜像部署（默认）"
+    echo "  -a, --api-only           仅构建/部署 API 服务"
+    echo "  -f, --frontend-only      仅构建/部署前端服务"
+    echo "  -d, --down               停止并删除所有容器"
+    echo "  -D, --down-v             停止并删除所有容器和数据卷"
+    echo "  -h, --help               显示帮助信息"
     echo ""
     echo "示例:"
     echo "  $0 -p myproject               # 使用 myproject 作为项目名部署"
-    echo "  $0 -p myproject --build       # 构建所有镜像后部署"
-    echo "  $0 -p myproject --build --api-only  # 仅构建 API 镜像后部署"
+    echo "  $0 -p myproject -b            # 构建所有镜像后部署"
+    echo "  $0 -p myproject -b -a         # 仅构建 API 镜像后部署"
+    echo "  $0 -d                         # 停止所有容器"
+    echo "  $0 -D                         # 停止所有容器并删除数据卷"
 }
 
 PROJECT_NAME="dbvault"
@@ -36,31 +38,31 @@ while [[ $# -gt 0 ]]; do
             PROJECT_NAME="$2"
             shift 2
             ;;
-        --build)
+        -b|--build)
             BUILD=true
             shift
             ;;
-        --no-build)
+        -n|--no-build)
             BUILD=false
             shift
             ;;
-        --api-only)
+        -a|--api-only)
             API_ONLY=true
             shift
             ;;
-        --frontend-only)
+        -f|--frontend-only)
             FRONTEND_ONLY=true
             shift
             ;;
-        --down)
+        -d|--down)
             DOWN=true
             shift
             ;;
-        --down-v)
+        -D|--down-v)
             DOWN_V=true
             shift
             ;;
-        --help)
+        -h|--help)
             usage
             exit 0
             ;;
