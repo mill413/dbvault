@@ -76,12 +76,12 @@
     <el-dialog v-model="backupDialogVisible" :title="$t('backup.runBackup')" width="500px">
       <el-form :model="backupForm" :rules="backupRules" ref="backupFormRef" label-width="100px">
         <el-form-item :label="$t('dashboard.database')" prop="database_id">
-          <el-select v-model="backupForm.database_id" style="width: 100%" placeholder="选择数据库">
+          <el-select v-model="backupForm.database_id" style="width: 100%" :placeholder="$t('backup.selectDb')">
             <el-option v-for="db in databases" :key="db.id" :label="db.name" :value="db.id" />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('common.storage')" prop="storage_id">
-          <el-select v-model="backupForm.storage_id" style="width: 100%" placeholder="选择存储">
+          <el-select v-model="backupForm.storage_id" style="width: 100%" :placeholder="$t('backup.selectStorage')">
             <el-option v-for="s in storages" :key="s.id" :label="s.name" :value="s.id" />
           </el-select>
         </el-form-item>
@@ -135,8 +135,8 @@ const backupForm = reactive({
 })
 
 const backupRules = {
-  database_id: [{ required: true, message: '请选择数据库', trigger: 'change' }],
-  storage_id: [{ required: true, message: '请选择存储', trigger: 'change' }],
+  database_id: [{ required: true, message: t('backup.databaseRequired'), trigger: 'change' }],
+  storage_id: [{ required: true, message: t('backup.storageRequired'), trigger: 'change' }],
 }
 
 const getStatusType = (status) => {

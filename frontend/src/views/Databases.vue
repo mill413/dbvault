@@ -12,9 +12,9 @@
               <el-option label="MariaDB" value="mariadb" />
             </el-select>
             <el-select v-model="filterEnv" :placeholder="$t('database.env')" clearable style="width: 120px" @change="fetchData">
-              <el-option label="生产" value="prod" />
-              <el-option label="测试" value="test" />
-              <el-option label="开发" value="dev" />
+              <el-option :label="$t('database.envProd')" value="prod" />
+              <el-option :label="$t('database.envTest')" value="test" />
+              <el-option :label="$t('database.envDev')" value="dev" />
             </el-select>
             <el-button type="primary" @click="showCreateDialog">
               <el-icon><Plus /></el-icon>
@@ -92,16 +92,16 @@
           <el-input v-model="form.username" />
         </el-form-item>
         <el-form-item :label="$t('database.password')" prop="password">
-          <el-input v-model="form.password" type="password" show-password />
+          <el-input v-model="form.password" type="password" show-password :placeholder="isEdit ? $t('database.passwordEditPlaceholder') : ''" />
         </el-form-item>
         <el-form-item :label="$t('database.databaseName')">
           <el-input v-model="form.database_name" :placeholder="$t('database.dbNamePlaceholder')" />
         </el-form-item>
         <el-form-item :label="$t('database.env')">
           <el-select v-model="form.environment" style="width: 100%">
-            <el-option label="生产环境" value="prod" />
-            <el-option label="测试环境" value="test" />
-            <el-option label="开发环境" value="dev" />
+            <el-option :label="$t('database.envProd')" value="prod" />
+            <el-option :label="$t('database.envTest')" value="test" />
+            <el-option :label="$t('database.envDev')" value="dev" />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('database.enableSsl')">
@@ -254,7 +254,7 @@ const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(t('database.deleteConfirm', { name: row.name }), t('common.confirm'), { type: 'warning' })
     await deleteDatabase(row.id)
-    ElMessage.success(t('database.testSuccess'))
+    ElMessage.success(t('common.deleteSuccess'))
     fetchData()
   } catch (error) {
     if (error !== 'cancel') {

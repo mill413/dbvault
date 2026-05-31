@@ -24,7 +24,10 @@ export default {
     yes: '是',
     no: '否',
     noData: '暂无数据',
-    details: '详情'
+    details: '详情',
+    updateSuccess: '更新成功',
+    createSuccess: '创建成功',
+    deleteSuccess: '删除成功'
   },
   login: {
     title: 'DBVault',
@@ -35,7 +38,23 @@ export default {
     password: '密码',
     signIn: '登录',
     success: '登录成功',
-    expired: '登录已过期，请重新登录'
+    expired: '登录已过期，请重新登录',
+    noAccount: '还没有账号？',
+    register: '立即注册'
+  },
+  register: {
+    title: '创建账号',
+    subtitle: '注册以开始使用 DBVault',
+    confirmPassword: '确认密码',
+    confirmPasswordPlaceholder: '请再次输入密码',
+    submit: '注册',
+    success: '注册成功，请登录',
+    hasAccount: '已有账号？',
+    backToLogin: '返回登录',
+    usernamePlaceholder: '请输入用户名',
+    displayNamePlaceholder: '请输入显示名称',
+    emailPlaceholder: '请输入邮箱',
+    passwordMismatch: '两次输入的密码不一致'
   },
   dashboard: {
     totalDatabases: '数据库实例',
@@ -48,7 +67,8 @@ export default {
     activeAlerts: '活动告警',
     database: '数据库',
     title: '标题',
-    severity: '级别'
+    severity: '级别',
+    storageCapacity: '存储容量使用'
   },
   database: {
     list: '数据库实例列表',
@@ -65,25 +85,33 @@ export default {
     dbNamePlaceholder: '留空表示包含所有数据库',
     username: '用户名',
     password: '密码',
+    passwordEditPlaceholder: '留空表示不修改',
     enableSsl: '启用SSL',
     desc: '描述',
     testSuccess: '连接测试成功',
-    deleteConfirm: '确定要删除实例 "{name}" 吗？'
+    deleteConfirm: '确定要删除实例 "{name}" 吗？',
+    envProd: '生产',
+    envTest: '测试',
+    envDev: '开发'
   },
   backup: {
     list: '备份列表',
     statusFilter: '状态筛选',
     selectDb: '选择数据库',
+    selectStorage: '选择存储',
     runBackup: '立即备份',
     type: '类型',
     size: '大小',
     compression: '压缩',
+    noCompression: '无',
     verify: '校验',
     download: '下载',
     retentionDays: '保留天数',
     deleteConfirm: '确定要删除备份 "{name}" 吗？',
     verifySubmitted: '校验任务已提交',
-    backupSubmitted: '备份任务已提交'
+    backupSubmitted: '备份任务已提交',
+    databaseRequired: '请选择数据库',
+    storageRequired: '请选择存储'
   },
   job: {
     list: '定时任务列表',
@@ -97,9 +125,16 @@ export default {
     intervalSec: '间隔(秒)',
     runAt: '执行时间',
     enabled: '启用',
+    disabled: '停用',
     lastRun: '上次执行',
     nextRun: '下次执行',
-    deleteConfirm: '确定要删除任务 "{name}" 吗？'
+    deleteConfirm: '确定要删除任务 "{name}" 吗？',
+    nameRequired: '请输入任务名称',
+    databaseRequired: '请选择数据库',
+    storageRequired: '请选择存储',
+    scheduleTypeRequired: '请选择调度类型',
+    selectDatabase: '选择数据库',
+    selectStorage: '选择存储'
   },
   restore: {
     title: '恢复管理',
@@ -119,12 +154,23 @@ export default {
     highRisk: '高风险操作',
     highRiskDesc: '您正在执行原实例恢复操作，这将覆盖目标数据库的所有数据。',
     confirmPrompt: '请输入 "{text}" 以确认：',
+    confirmPlaceholder: '输入确认文本',
     newInstance: '恢复到新实例',
     originalInstance: '原实例恢复',
     taskDetails: '任务详情',
     logs: '执行日志',
     dryRunPass: '预检查通过',
-    dryRunFail: '预检查未通过'
+    dryRunFail: '预检查未通过',
+    dryRunPassMsg: '预检查通过，可以执行恢复',
+    dryRunFailMsg: '预检查未通过，请检查错误信息',
+    submittedSuccess: '恢复任务已提交',
+    selectBackup: '请选择备份',
+    selectTargetDb: '请先选择备份',
+    backupRequired: '请选择备份',
+    modeRequired: '请选择恢复模式',
+    newInstanceWarning: '恢复到新实例模式下，目标数据库应与备份来源数据库不同',
+    originalInstanceWarning: '原实例恢复模式下，目标数据库必须与备份来源数据库相同',
+    eventType: '事件类型'
   },
   alert: {
     title: '告警管理',
@@ -136,7 +182,12 @@ export default {
     message: '消息',
     resolvedAt: '解决时间',
     resolve: '解决',
-    resolvedSuccess: '告警已解决'
+    resolvedSuccess: '告警已解决',
+    severityCRITICAL: '紧急',
+    severityHIGH: '高',
+    severityMEDIUM: '中',
+    severityLOW: '低',
+    severityINFO: '信息'
   },
   audit: {
     title: '审计日志',
@@ -166,7 +217,14 @@ export default {
     bucket: 'Bucket',
     region: 'Region',
     testSuccess: '存储测试成功',
-    deleteConfirm: '确定要删除存储 "{name}" 吗？'
+    deleteConfirm: '确定要删除存储 "{name}" 吗？',
+    nameRequired: '请输入存储名称',
+    typeRequired: '请选择存储类型',
+    capacityLimit: '容量上限',
+    capacityLimitPlaceholder: '留空表示不限制（单位 GB）',
+    usedCapacity: '已用容量',
+    capacityPercent: '使用率',
+    capacityWarning: '存储容量已超过 {percent}%'
   },
   user: {
     title: '用户管理',
@@ -182,6 +240,13 @@ export default {
     resetPassword: '重置密码',
     newPassword: '新密码',
     passwordLength: '至少12位',
-    deleteConfirm: '确定要删除用户 "{name}" 吗？'
+    deleteConfirm: '确定要删除用户 "{name}" 吗？',
+    usernameRequired: '请输入用户名',
+    passwordRequired: '请输入密码',
+    roleRequired: '请选择角色',
+    usernamePlaceholder: '请输入用户名',
+    displayNamePlaceholder: '请输入显示名称',
+    emailPlaceholder: '请输入邮箱',
+    resetSuccess: '密码重置成功'
   }
 }

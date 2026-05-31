@@ -72,16 +72,16 @@
     <el-dialog v-model="dialogVisible" :title="isEdit ? $t('user.editUser') : $t('user.addUser')" width="500px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item :label="$t('login.username')" prop="username">
-          <el-input v-model="form.username" :disabled="isEdit" placeholder="请输入用户名" />
+          <el-input v-model="form.username" :disabled="isEdit" :placeholder="$t('user.usernamePlaceholder')" />
         </el-form-item>
         <el-form-item v-if="!isEdit" :label="$t('login.password')" prop="password">
           <el-input v-model="form.password" type="password" show-password :placeholder="$t('user.passwordLength')" />
         </el-form-item>
         <el-form-item :label="$t('user.displayName')" prop="display_name">
-          <el-input v-model="form.display_name" placeholder="请输入显示名称" />
+          <el-input v-model="form.display_name" :placeholder="$t('user.displayNamePlaceholder')" />
         </el-form-item>
         <el-form-item :label="$t('user.email')" prop="email">
-          <el-input v-model="form.email" placeholder="请输入邮箱" />
+          <el-input v-model="form.email" :placeholder="$t('user.emailPlaceholder')" />
         </el-form-item>
         <el-form-item :label="$t('user.role')" prop="role">
           <el-select v-model="form.role" style="width: 100%">
@@ -160,13 +160,13 @@ const resetForm = reactive({
 })
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 12, message: '密码至少12位', trigger: 'blur' }],
-  role: [{ required: true, message: '请选择角色', trigger: 'change' }],
+  username: [{ required: true, message: t('user.usernameRequired'), trigger: 'blur' }],
+  password: [{ required: true, message: t('user.passwordRequired'), trigger: 'blur' }, { min: 12, message: t('user.passwordLength'), trigger: 'blur' }],
+  role: [{ required: true, message: t('user.roleRequired'), trigger: 'change' }],
 }
 
 const resetRules = {
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 12, message: '密码至少12位', trigger: 'blur' }],
+  password: [{ required: true, message: t('user.passwordRequired'), trigger: 'blur' }, { min: 12, message: t('user.passwordLength'), trigger: 'blur' }],
 }
 
 const getRoleType = (role) => {
@@ -238,7 +238,7 @@ const handleSubmit = async () => {
         role: form.role,
         status: form.status,
       })
-      ElMessage.success('更新成功')
+      ElMessage.success(t('common.updateSuccess'))
     } else {
       await createUser({
         username: form.username,
@@ -247,7 +247,7 @@ const handleSubmit = async () => {
         email: form.email,
         role: form.role,
       })
-      ElMessage.success('创建成功')
+      ElMessage.success(t('common.createSuccess'))
     }
     dialogVisible.value = false
     fetchData()
@@ -278,7 +278,7 @@ const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(t('user.deleteConfirm', { name: row.username }), t('common.confirm'), { type: 'warning' })
     await deleteUser(row.id)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('common.deleteSuccess'))
     fetchData()
   } catch (error) {
     if (error !== 'cancel') {

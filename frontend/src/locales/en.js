@@ -24,7 +24,10 @@ export default {
     yes: 'Yes',
     no: 'No',
     noData: 'No Data Available',
-    details: 'Details'
+    details: 'Details',
+    updateSuccess: 'Updated successfully',
+    createSuccess: 'Created successfully',
+    deleteSuccess: 'Deleted successfully'
   },
   login: {
     title: 'Secure. Reliable. Database Management.',
@@ -35,7 +38,23 @@ export default {
     password: 'Password',
     signIn: 'Sign In',
     success: 'Sign in successful',
-    expired: 'Session expired. Please sign in again.'
+    expired: 'Session expired. Please sign in again.',
+    noAccount: "Don't have an account?",
+    register: 'Register now'
+  },
+  register: {
+    title: 'Create Account',
+    subtitle: 'Sign up to start using DBVault',
+    confirmPassword: 'Confirm Password',
+    confirmPasswordPlaceholder: 'Re-enter your password',
+    submit: 'Register',
+    success: 'Registration successful. Please sign in.',
+    hasAccount: 'Already have an account?',
+    backToLogin: 'Back to Login',
+    usernamePlaceholder: 'Enter username',
+    displayNamePlaceholder: 'Enter display name',
+    emailPlaceholder: 'Enter email',
+    passwordMismatch: 'Passwords do not match'
   },
   dashboard: {
     totalDatabases: 'Total Databases',
@@ -48,7 +67,8 @@ export default {
     activeAlerts: 'Active Alerts',
     database: 'Database',
     title: 'Title',
-    severity: 'Severity'
+    severity: 'Severity',
+    storageCapacity: 'Storage Capacity Usage'
   },
   database: {
     list: 'Database Instances',
@@ -65,25 +85,33 @@ export default {
     dbNamePlaceholder: 'Leave empty to include all databases',
     username: 'Username',
     password: 'Password',
+    passwordEditPlaceholder: 'Leave empty to keep current',
     enableSsl: 'Enable SSL',
     desc: 'Description',
     testSuccess: 'Connection successful',
-    deleteConfirm: 'Are you sure you want to delete instance "{name}"?'
+    deleteConfirm: 'Are you sure you want to delete instance "{name}"?',
+    envProd: 'Production',
+    envTest: 'Testing',
+    envDev: 'Development'
   },
   backup: {
     list: 'Backups List',
     statusFilter: 'Filter Status',
     selectDb: 'Select Database',
+    selectStorage: 'Select Storage',
     runBackup: 'Run Backup',
     type: 'Type',
     size: 'Size',
     compression: 'Compression',
+    noCompression: 'None',
     verify: 'Verify',
     download: 'Download',
     retentionDays: 'Retention Days',
     deleteConfirm: 'Are you sure you want to delete backup "{name}"?',
     verifySubmitted: 'Verification task submitted',
-    backupSubmitted: 'Backup task submitted'
+    backupSubmitted: 'Backup task submitted',
+    databaseRequired: 'Please select a database',
+    storageRequired: 'Please select a storage'
   },
   job: {
     list: 'Scheduled Jobs',
@@ -97,9 +125,16 @@ export default {
     intervalSec: 'Interval (sec)',
     runAt: 'Run At',
     enabled: 'Enabled',
+    disabled: 'Disabled',
     lastRun: 'Last Run',
     nextRun: 'Next Run',
-    deleteConfirm: 'Are you sure you want to delete job "{name}"?'
+    deleteConfirm: 'Are you sure you want to delete job "{name}"?',
+    nameRequired: 'Please enter a job name',
+    databaseRequired: 'Please select a database',
+    storageRequired: 'Please select a storage',
+    scheduleTypeRequired: 'Please select a schedule type',
+    selectDatabase: 'Select database',
+    selectStorage: 'Select storage'
   },
   restore: {
     title: 'Restore Management',
@@ -119,12 +154,23 @@ export default {
     highRisk: 'High Risk Operation',
     highRiskDesc: 'You are performing an original instance restore. This will overwrite all data on the target database.',
     confirmPrompt: 'Please enter "{text}" to confirm:',
+    confirmPlaceholder: 'Enter confirmation text',
     newInstance: 'Restore to New Instance',
     originalInstance: 'Original Instance Restore',
     taskDetails: 'Task Details',
     logs: 'Execution Logs',
     dryRunPass: 'Dry run passed',
-    dryRunFail: 'Dry run failed'
+    dryRunFail: 'Dry run failed',
+    dryRunPassMsg: 'Dry run passed. You can proceed with the restore.',
+    dryRunFailMsg: 'Dry run failed. Please check the error details.',
+    submittedSuccess: 'Restore task submitted',
+    selectBackup: 'Select a backup',
+    selectTargetDb: 'Select backup first',
+    backupRequired: 'Please select a backup',
+    modeRequired: 'Please select a restore mode',
+    newInstanceWarning: 'In new instance mode, the target database must differ from the source database',
+    originalInstanceWarning: 'In original instance mode, the target database must be the same as the source database',
+    eventType: 'Event Type'
   },
   alert: {
     title: 'Alert Management',
@@ -136,7 +182,12 @@ export default {
     message: 'Message',
     resolvedAt: 'Resolved At',
     resolve: 'Resolve',
-    resolvedSuccess: 'Alert resolved'
+    resolvedSuccess: 'Alert resolved',
+    severityCRITICAL: 'Critical',
+    severityHIGH: 'High',
+    severityMEDIUM: 'Medium',
+    severityLOW: 'Low',
+    severityINFO: 'Info'
   },
   audit: {
     title: 'Audit Logs',
@@ -166,7 +217,14 @@ export default {
     bucket: 'Bucket',
     region: 'Region',
     testSuccess: 'Storage test successful',
-    deleteConfirm: 'Are you sure you want to delete storage "{name}"?'
+    deleteConfirm: 'Are you sure you want to delete storage "{name}"?',
+    nameRequired: 'Please enter a storage name',
+    typeRequired: 'Please select a storage type',
+    capacityLimit: 'Capacity Limit',
+    capacityLimitPlaceholder: 'Leave empty for no limit (in GB)',
+    usedCapacity: 'Used Capacity',
+    capacityPercent: 'Usage',
+    capacityWarning: 'Storage capacity exceeds {percent}%'
   },
   user: {
     title: 'User Management',
@@ -182,6 +240,13 @@ export default {
     resetPassword: 'Reset Password',
     newPassword: 'New Password',
     passwordLength: 'At least 12 characters',
-    deleteConfirm: 'Are you sure you want to delete user "{name}"?'
+    deleteConfirm: 'Are you sure you want to delete user "{name}"?',
+    usernameRequired: 'Please enter a username',
+    passwordRequired: 'Please enter a password',
+    roleRequired: 'Please select a role',
+    usernamePlaceholder: 'Enter username',
+    displayNamePlaceholder: 'Enter display name',
+    emailPlaceholder: 'Enter email',
+    resetSuccess: 'Password reset successfully'
   }
 }

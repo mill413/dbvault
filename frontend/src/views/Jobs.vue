@@ -8,7 +8,7 @@
             <el-input v-model="searchName" :placeholder="$t('job.searchName')" clearable style="width: 180px" />
             <el-select v-model="filterEnabled" :placeholder="$t('job.statusFilter')" clearable style="width: 120px">
               <el-option :label="$t('job.enabled')" :value="true" />
-              <el-option label="停用" :value="false" />
+              <el-option :label="$t('job.disabled')" :value="false" />
             </el-select>
             <el-button type="primary" @click="showCreateDialog">
               <el-icon><Plus /></el-icon>
@@ -67,12 +67,12 @@
           <el-input v-model="form.name" />
         </el-form-item>
         <el-form-item :label="$t('dashboard.database')" prop="database_id">
-          <el-select v-model="form.database_id" style="width: 100%" placeholder="选择数据库">
+          <el-select v-model="form.database_id" style="width: 100%" :placeholder="$t('job.selectDatabase')">
             <el-option v-for="db in databases" :key="db.id" :label="db.name" :value="db.id" />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('common.storage')" prop="storage_id">
-          <el-select v-model="form.storage_id" style="width: 100%" placeholder="选择存储">
+          <el-select v-model="form.storage_id" style="width: 100%" :placeholder="$t('job.selectStorage')">
             <el-option v-for="s in storages" :key="s.id" :label="s.name" :value="s.id" />
           </el-select>
         </el-form-item>
@@ -101,7 +101,7 @@
         <el-form-item :label="$t('backup.retentionDays')">
           <el-input-number v-model="form.retention_days" :min="1" :max="365" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="启用">
+        <el-form-item :label="$t('job.enabled')">
           <el-switch v-model="form.enabled" />
         </el-form-item>
       </el-form>

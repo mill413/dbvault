@@ -73,7 +73,7 @@
     <el-dialog v-model="restoreDialogVisible" :title="$t('restore.restoreBackup')" width="600px">
       <el-form :model="restoreForm" :rules="restoreRules" ref="restoreFormRef" label-width="120px">
         <el-form-item :label="$t('restore.restoreBackup')" prop="backup_id">
-          <el-select v-model="restoreForm.backup_id" filterable placeholder="请选择备份" style="width: 100%">
+          <el-select v-model="restoreForm.backup_id" filterable :placeholder="$t('restore.selectBackup')" style="width: 100%">
             <el-option
               v-for="backup in backups"
               :key="backup.id"
@@ -83,7 +83,7 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('restore.targetDb')" prop="target_database_id" v-if="restoreForm.restore_mode === 'NEW_INSTANCE'">
-          <el-select v-model="restoreForm.target_database_id" filterable placeholder="请先选择备份" :disabled="!restoreForm.backup_id" style="width: 100%">
+          <el-select v-model="restoreForm.target_database_id" filterable :placeholder="$t('restore.selectTargetDb')" :disabled="!restoreForm.backup_id" style="width: 100%">
             <el-option
               v-for="db in availableTargetDatabases"
               :key="db.id"
@@ -142,14 +142,14 @@
         <el-descriptions-item :label="$t('common.status')">{{ currentTask?.status }}</el-descriptions-item>
         <el-descriptions-item :label="$t('restore.phase')">{{ currentTask?.phase }}</el-descriptions-item>
         <el-descriptions-item :label="$t('restore.progress')">{{ currentTask?.progress }}%</el-descriptions-item>
-        <el-descriptions-item label="耗时">{{ currentTask?.duration_seconds ? currentTask.duration_seconds.toFixed(1) + 's' : '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('restore.duration')">{{ currentTask?.duration_seconds ? currentTask.duration_seconds.toFixed(1) + 's' : '-' }}</el-descriptions-item>
         <el-descriptions-item :label="$t('restore.errorMsg')" :span="2">{{ currentTask?.error_message || '-' }}</el-descriptions-item>
       </el-descriptions>
       <div style="margin-top: 20px">
         <h4>{{ $t('restore.logs') }}</h4>
         <el-table :data="events" style="width: 100%" max-height="300" size="default" empty-text="No data available">
           <el-table-column prop="id" label="ID" width="60" />
-          <el-table-column prop="event_type" label="事件类型" width="120" />
+          <el-table-column prop="event_type" :label="$t('restore.eventType')" width="120" />
           <el-table-column prop="message" :label="$t('alert.message')" min-width="200" show-overflow-tooltip />
           <el-table-column :label="$t('common.time')" width="180">
           <template #default="{ row }">
@@ -293,12 +293,12 @@ const validateRestoreMode = () => {
   const targetDbId = restoreForm.target_database_id
 
   if (restoreForm.restore_mode === 'NEW_INSTANCE' && sourceDbId === targetDbId) {
-    ElMessage.warning('恢复到新实例模式下，目标数据库应与备份来源数据库不同')
+    ElMessage.warning(t('restore.newInstanceWarning'))
     return false
   }
 
   if (restoreForm.restore_mode === 'ORIGINAL_INSTANCE' && sourceDbId !== targetDbId) {
-    ElMessage.warning('原实例恢复模式下，目标数据库必须与备份来源数据库相同')
+    ElMessage.warning(t('restore.originalInstanceWarning'))
     return false
   }
 
@@ -363,7 +363,7 @@ const submitRestore = async () => {
       payload.confirm_text = confirmText.value
     }
     await runRestore(payload)
-    ElMessage.success('恢复任务已提交')
+    ElMessage.success(t('restore.submittedSuccess'))
     restoreDialogVisible.value = false
     confirmDialogVisible.value = false
     fetchData()
