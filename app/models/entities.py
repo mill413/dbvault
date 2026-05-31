@@ -71,6 +71,7 @@ class Storage(Base, TimestampMixin, SoftDeleteMixin):
     config_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE", nullable=False)
+    capacity_limit_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
 

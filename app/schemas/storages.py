@@ -11,6 +11,7 @@ class StorageCreate(BaseModel):
     storage_type: str
     config: dict[str, Any]
     is_default: bool = False
+    capacity_limit_bytes: int | None = None
 
 
 class StorageUpdate(BaseModel):
@@ -18,6 +19,7 @@ class StorageUpdate(BaseModel):
     config: dict[str, Any] | None = None
     is_default: bool | None = None
     status: str | None = None
+    capacity_limit_bytes: int | None = None
 
 
 class StorageRead(ORMModel):
@@ -26,6 +28,7 @@ class StorageRead(ORMModel):
     storage_type: str
     is_default: bool
     status: str
+    capacity_limit_bytes: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -33,4 +36,12 @@ class StorageRead(ORMModel):
 class StorageTestResponse(BaseModel):
     ok: bool
     message: str
+
+
+class StorageCapacityResponse(BaseModel):
+    storage_id: int
+    storage_name: str
+    capacity_limit_bytes: int | None
+    used_bytes: int
+    usage_percent: float | None
 

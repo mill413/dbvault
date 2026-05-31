@@ -8,9 +8,9 @@ from app.core.database import get_db
 from app.core.errors import AppError
 from app.models import Storage, User
 from app.schemas.common import Message, Page
-from app.schemas.storages import StorageCreate, StorageRead, StorageTestResponse, StorageUpdate
+from app.schemas.storages import StorageCapacityResponse, StorageCreate, StorageRead, StorageTestResponse, StorageUpdate
 from app.services.audit_service import create_audit_log
-from app.services.storage_service import build_storage_driver, create_storage, encrypt_config
+from app.services.storage_service import build_storage_driver, create_storage, encrypt_config, get_storage_usage
 
 router = APIRouter()
 
@@ -30,6 +30,28 @@ def list_storages(
         "page_size": page_size,
         "total": total,
     }
+
+
+@router.get("/capacity/all", response_model=list[StorageCapacityResponse])
+def get_all_storage_capacity(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("storage:read")),
+):
+    storages = db.query(Storage).filter(Storage.deleted_at.is_(None), Storage.status == "ACTIVE").all()
+    results = []
+    for s in storages:
+        used = get_storage_usage(db, s)
+        usage_percent = None
+        if s.capacity_limit_bytes and s.capacity_limit_bytes > 0:
+            usage_percent = round((used / s.capacity_limit_bytes) * 100, 2)
+        results.append({
+            "storage_id": s.id,
+            "storage_name": s.name,
+            "capacity_limit_bytes": s.capacity_limit_bytes,
+            "used_bytes": used,
+            "usage_percent": usage_percent,
+        })
+    return results
 
 
 @router.post("", response_model=StorageRead)
@@ -120,3 +142,25 @@ def test_storage(storage_id: int, db: Session = Depends(get_db), _: User = Depen
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
     return build_storage_driver(item).test()
+
+
+@router.get("/{storage_id}/capacity", response_model=StorageCapacityResponse)
+def get_storage_capacity(
+    storage_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("storage:read")),
+):
+    item = db.get(Storage, storage_id)
+    if not item or item.deleted_at is not None:
+        raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    used = get_storage_usage(db, item)
+    usage_percent = None
+    if item.capacity_limit_bytes and item.capacity_limit_bytes > 0:
+        usage_percent = round((used / item.capacity_limit_bytes) * 100, 2)
+    return {
+        "storage_id": item.id,
+        "storage_name": item.name,
+        "capacity_limit_bytes": item.capacity_limit_bytes,
+        "used_bytes": used,
+        "usage_percent": usage_percent,
+    }
