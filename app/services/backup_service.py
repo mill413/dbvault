@@ -15,9 +15,27 @@ from app.services.alert_service import create_alert
 from app.services.audit_service import add_task_event
 from app.services.database_service import build_database_driver
 from app.services.lifecycle_service import calculate_expires_at
-from app.services.storage_service import build_storage_driver, get_default_storage
+from app.services.storage_service import build_storage_driver, get_default_storage, get_storage_usage
 from app.utils.checksum import file_checksum
 from app.utils.paths import build_backup_object_key
+
+
+def _check_storage_capacity(db: Session, storage: Storage, additional_bytes: int) -> None:
+    if not storage.capacity_limit_bytes:
+        return
+    used = get_storage_usage(db, storage)
+    if used + additional_bytes > storage.capacity_limit_bytes:
+        usage_pct = round((used / storage.capacity_limit_bytes) * 100, 1)
+        create_alert(
+            db,
+            alert_type="CAPACITY_WARNING",
+            severity="High",
+            resource_type="storage",
+            resource_id=storage.id,
+            title="Storage capacity limit exceeded",
+            message=f"Storage '{storage.name}' usage ({usage_pct}%) plus new backup ({additional_bytes} bytes) exceeds capacity limit ({storage.capacity_limit_bytes} bytes)",
+            dedupe_key=f"capacity:{storage.id}",
+        )
 
 
 def create_backup_task(db: Session, payload, user: User, trigger_type: str = "MANUAL") -> BackupTask:
@@ -136,6 +154,7 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
         task.phase = "UPLOADING"
         task.progress = 75
         db.commit()
+        _check_storage_capacity(db, storage, compressed_file.stat().st_size)
         storage_driver = build_storage_driver(storage)
         storage_driver.upload(
             compressed_file,
@@ -237,6 +256,7 @@ def upload_backup_file(
             datetime.now(UTC),
             extension,
         )
+        _check_storage_capacity(db, storage, local_path.stat().st_size)
         build_storage_driver(storage).upload(local_path, object_key, {"sha256": sha256})
         backup.object_key = object_key
         backup.status = "AVAILABLE"
