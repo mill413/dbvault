@@ -15,6 +15,7 @@ from app.schemas.databases import (
     DatabaseTestRequest,
     DatabaseUpdate,
 )
+from app.drivers.database.k8s import list_namespaces, list_pods
 from app.services.audit_service import create_audit_log
 from app.services.database_service import (
     create_database,
@@ -74,6 +75,27 @@ def test_temporary_database(
     item.deleted_at = datetime.now(UTC)
     db.commit()
     return result
+
+
+@router.get("/k8s/namespaces")
+def get_k8s_namespaces(
+    kubeconfig: str | None = None,
+    context: str | None = None,
+    _: User = Depends(require_permission("database:read")),
+):
+    namespaces = list_namespaces(kubeconfig=kubeconfig, context=context)
+    return {"namespaces": namespaces}
+
+
+@router.get("/k8s/pods")
+def get_k8s_pods(
+    namespace: str = "default",
+    kubeconfig: str | None = None,
+    context: str | None = None,
+    _: User = Depends(require_permission("database:read")),
+):
+    pods = list_pods(namespace=namespace, kubeconfig=kubeconfig, context=context)
+    return {"pods": pods}
 
 
 @router.get("/{database_id}", response_model=DatabaseRead)
