@@ -261,7 +261,7 @@ export default {
     nameRequired: '请输入存储名称',
     typeRequired: '请选择存储类型',
     capacityLimit: '容量上限',
-    capacityLimitPlaceholder: '留空表示不限制（单位 GB）',
+    capacityLimitPlaceholder: '留空表示不限制',
     usedCapacity: '已用容量',
     capacityPercent: '使用率',
     capacityWarning: '存储容量已超过 {percent}%',
