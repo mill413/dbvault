@@ -1,0 +1,66 @@
+name: Build and Release Docker Images
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate version tag
+        id: tag
+        run: |
+          echo "version=v$(date +'%Y%m%d%H%M%S')" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build API image
+        run: |
+          docker build \
+            -t dbvault-api:latest \
+            -t dbvault-api:${{ steps.tag.outputs.short_sha }} \
+            -f docker/Dockerfile .
+
+      - name: Build Frontend image
+        run: |
+          docker build \
+            -t dbvault-frontend:latest \
+            -t dbvault-frontend:${{ steps.tag.outputs.short_sha }} \
+            -f docker/Dockerfile.frontend frontend/
+
+      - name: Export images to tar
+        run: |
+          docker save dbvault-api:latest dbvault-frontend:latest \
+            | gzip > dbvault-images-${{ steps.tag.outputs.version }}.tar.gz
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: release/${{ steps.tag.outputs.version }}
+          name: DBVault ${{ steps.tag.outputs.version }}
+          body: |
+            ## Docker Images
+
+            - `dbvault-api:${{ steps.tag.outputs.short_sha }}`
+            - `dbvault-frontend:${{ steps.tag.outputs.short_sha }}`
+
+            ### 使用方式
+
+            ```bash
+            # 下载并加载镜像
+            docker load -i dbvault-images-*.tar.gz
+
+            # 或使用 docker compose 部署
+            docker compose -f docker/docker-compose.yml up -d
+            ```
+          files: dbvault-images-${{ steps.tag.outputs.version }}.tar.gz
+          generate_release_notes: true
