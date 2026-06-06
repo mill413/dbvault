@@ -20,33 +20,33 @@
         </div>
       </template>
 
-      <el-table :data="restoreTasks" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
-        <el-table-column prop="id" :label="$t('restore.taskId')" width="80" />
-        <el-table-column prop="backup_id" :label="$t('restore.backupId')" width="100" />
-        <el-table-column :label="$t('restore.targetDb')" width="150">
+      <el-table :data="restoreTasks" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+        <el-table-column prop="id" :label="$t('restore.taskId')" width="80" sortable />
+        <el-table-column prop="backup_id" :label="$t('restore.backupId')" width="100" sortable />
+        <el-table-column prop="target_database_id" :label="$t('restore.targetDb')" width="150" sortable>
           <template #default="{ row }">
             {{ getDatabaseName(row.target_database_id) || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="restore_mode" :label="$t('restore.restoreMode')" width="120" />
-        <el-table-column prop="status" :label="$t('common.status')" width="100">
+        <el-table-column prop="restore_mode" :label="$t('restore.restoreMode')" width="120" sortable />
+        <el-table-column prop="status" :label="$t('common.status')" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="phase" :label="$t('restore.phase')" width="100" />
-        <el-table-column prop="progress" :label="$t('restore.progress')" width="100">
+        <el-table-column prop="phase" :label="$t('restore.phase')" width="100" sortable />
+        <el-table-column prop="progress" :label="$t('restore.progress')" width="100" sortable>
           <template #default="{ row }">
             {{ row.progress }}%
           </template>
         </el-table-column>
-        <el-table-column prop="error_message" :label="$t('restore.errorMsg')" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="duration_seconds" :label="$t('restore.duration')" width="100">
+        <el-table-column prop="error_message" :label="$t('restore.errorMsg')" min-width="200" show-overflow-tooltip sortable />
+        <el-table-column prop="duration_seconds" :label="$t('restore.duration')" width="100" sortable>
           <template #default="{ row }">
             {{ row.duration_seconds ? row.duration_seconds.toFixed(1) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.createTime')" width="180">
+        <el-table-column prop="created_at" :label="$t('common.createTime')" width="180" sortable>
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>
@@ -147,11 +147,11 @@
       </el-descriptions>
       <div style="margin-top: 20px">
         <h4>{{ $t('restore.logs') }}</h4>
-        <el-table :data="events" style="width: 100%" max-height="300" size="default" empty-text="No data available">
-          <el-table-column prop="id" label="ID" width="60" />
-          <el-table-column prop="event_type" :label="$t('restore.eventType')" width="120" />
-          <el-table-column prop="message" :label="$t('alert.message')" min-width="200" show-overflow-tooltip />
-          <el-table-column :label="$t('common.time')" width="180">
+        <el-table :data="events" border style="width: 100%" max-height="300" size="default" empty-text="No data available">
+          <el-table-column prop="id" label="ID" width="80" sortable />
+          <el-table-column prop="event_type" :label="$t('restore.eventType')" width="120" sortable />
+          <el-table-column prop="message" :label="$t('alert.message')" min-width="200" show-overflow-tooltip sortable />
+          <el-table-column prop="created_at" :label="$t('common.time')" width="180" sortable>
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>

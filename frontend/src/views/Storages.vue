@@ -21,26 +21,26 @@
         </div>
       </template>
 
-      <el-table :data="filteredStorages" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="name" :label="$t('storage.name')" />
-        <el-table-column prop="storage_type" :label="$t('storage.type')" width="120">
+      <el-table :data="filteredStorages" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+        <el-table-column prop="id" label="ID" width="80" sortable />
+        <el-table-column prop="name" :label="$t('storage.name')" sortable />
+        <el-table-column prop="storage_type" :label="$t('storage.type')" width="120" sortable>
           <template #default="{ row }">
             <el-tag>{{ row.storage_type.toUpperCase() }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_default" :label="$t('storage.isDefault')" width="100">
+        <el-table-column prop="is_default" :label="$t('storage.isDefault')" width="100" sortable>
           <template #default="{ row }">
             <el-tag v-if="row.is_default" type="success" size="small">{{ $t('common.yes') }}</el-tag>
             <el-tag v-else type="info" size="small">{{ $t('common.no') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" :label="$t('common.status')" width="100">
+        <el-table-column prop="status" :label="$t('common.status')" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('storage.capacityLimit')" width="140">
+        <el-table-column prop="capacity_limit_bytes" :label="$t('storage.capacityLimit')" width="140" sortable>
           <template #default="{ row }">
             {{ row.capacity_limit_bytes ? formatSize(row.capacity_limit_bytes) : '-' }}
           </template>

@@ -23,27 +23,27 @@
         </div>
       </template>
 
-      <el-table :data="filteredUsers" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="username" :label="$t('login.username')" width="120" />
-        <el-table-column prop="display_name" :label="$t('user.displayName')" width="150" />
-        <el-table-column prop="email" :label="$t('user.email')" width="200" />
-        <el-table-column prop="role" :label="$t('user.role')" width="100">
+      <el-table :data="filteredUsers" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+        <el-table-column prop="id" label="ID" width="80" sortable />
+        <el-table-column prop="username" :label="$t('login.username')" min-width="120" sortable />
+        <el-table-column prop="display_name" :label="$t('user.displayName')" min-width="130" sortable />
+        <el-table-column prop="email" :label="$t('user.email')" min-width="180" sortable />
+        <el-table-column prop="role" :label="$t('user.role')" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="getRoleType(row.role)" size="small">{{ row.role }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" :label="$t('common.status')" width="100">
+        <el-table-column prop="status" :label="$t('common.status')" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'danger'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('user.lastLogin')" width="180">
+        <el-table-column prop="last_login_at" :label="$t('user.lastLogin')" min-width="170" sortable>
           <template #default="{ row }">
             {{ formatTime(row.last_login_at) }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.createTime')" width="180">
+        <el-table-column prop="created_at" :label="$t('common.createTime')" min-width="170" sortable>
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>

@@ -18,36 +18,36 @@
         </div>
       </template>
 
-      <el-table :data="filteredJobs" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="name" :label="$t('job.name')" />
-        <el-table-column :label="$t('dashboard.database')">
+      <el-table :data="filteredJobs" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+        <el-table-column prop="id" label="ID" width="80" sortable />
+        <el-table-column prop="name" :label="$t('job.name')" sortable />
+        <el-table-column prop="database_id" :label="$t('dashboard.database')" sortable>
           <template #default="{ row }">
             {{ getDatabaseName(row.database_id) }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.storage')" width="120">
+        <el-table-column prop="storage_id" :label="$t('common.storage')" width="120" sortable>
           <template #default="{ row }">
             {{ getStorageName(row.storage_id) }}
           </template>
         </el-table-column>
-        <el-table-column prop="schedule_type" :label="$t('job.scheduleType')" width="100">
+        <el-table-column prop="schedule_type" :label="$t('job.scheduleType')" width="100" sortable>
           <template #default="{ row }">
             <el-tag size="small">{{ getScheduleLabel(row.schedule_type) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="cron_expr" :label="$t('job.cronExpr')" width="120" />
-        <el-table-column prop="enabled" :label="$t('common.status')" width="100">
+        <el-table-column prop="cron_expr" :label="$t('job.cronExpr')" width="120" sortable />
+        <el-table-column prop="enabled" :label="$t('common.status')" width="100" sortable>
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="handleToggle(row)" />
           </template>
         </el-table-column>
-        <el-table-column prop="last_status" :label="$t('job.lastRun')" width="100">
+        <el-table-column prop="last_status" :label="$t('job.lastRun')" width="100" sortable>
           <template #default="{ row }">
             <el-tag v-if="row.last_status" :type="getStatusType(row.last_status)" size="small">{{ row.last_status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="next_run_at" :label="$t('job.nextRun')" width="180">
+        <el-table-column prop="next_run_at" :label="$t('job.nextRun')" width="180" sortable>
           <template #default="{ row }">
             {{ row.next_run_at ? formatDate(row.next_run_at) : '-' }}
           </template>

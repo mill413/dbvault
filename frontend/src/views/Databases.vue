@@ -24,29 +24,37 @@
         </div>
       </template>
 
-      <el-table :data="databases" v-loading="loading" style="width: 100%" size="default" :empty-text="$t('common.noData')">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="name" :label="$t('database.name')" />
-        <el-table-column prop="db_type" :label="$t('database.type')" width="120">
+      <el-table :data="databases" v-loading="loading" border style="width: 100%" size="default" :empty-text="$t('common.noData')">
+        <el-table-column prop="id" label="ID" width="80" sortable />
+        <el-table-column prop="name" :label="$t('database.name')" sortable />
+        <el-table-column prop="db_type" :label="$t('database.type')" width="120" sortable>
           <template #default="{ row }">
             <el-tag>{{ row.db_type.toUpperCase() }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('database.connectionType')" width="120">
+        <el-table-column prop="connection_type" :label="$t('database.connectionType')" width="120" sortable>
           <template #default="{ row }">
             <el-tag :type="row.connection_type === 'kubernetes' ? 'warning' : ''" size="small">
               {{ row.connection_type === 'kubernetes' ? 'K8s' : $t('database.directConnection') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="host" :label="$t('database.host')" />
-        <el-table-column prop="port" :label="$t('database.port')" width="80" />
-        <el-table-column prop="database_name" :label="$t('database.databaseName')" width="120">
+        <el-table-column prop="host" :label="$t('database.host')" sortable>
+          <template #default="{ row }">
+            {{ row.connection_type === 'kubernetes' ? '-' : (row.host || '-') }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="port" :label="$t('database.port')" width="80" sortable>
+          <template #default="{ row }">
+            {{ row.connection_type === 'kubernetes' ? '-' : (row.port || '-') }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="database_name" :label="$t('database.databaseName')" width="120" sortable>
           <template #default="{ row }">
             {{ row.database_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="environment" :label="$t('database.env')" width="100">
+        <el-table-column prop="environment" :label="$t('database.env')" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="getEnvType(row.environment)" size="small">{{ row.environment }}</el-tag>
           </template>
@@ -201,8 +209,8 @@
       </div>
 
       <el-divider>{{ $t('database.k8sExistingClusters') }}</el-divider>
-      <el-table :data="kubeconfigList" v-loading="kubeconfigLoading" size="small" :empty-text="$t('common.noData')">
-        <el-table-column prop="name" :label="$t('database.k8sClusterName')" />
+      <el-table :data="kubeconfigList" v-loading="kubeconfigLoading" border size="small" :empty-text="$t('common.noData')">
+        <el-table-column prop="name" :label="$t('database.k8sClusterName')" sortable />
         <el-table-column :label="$t('database.k8sContexts')" min-width="200">
           <template #default="{ row }">
             <el-tag v-for="ctx in row.contexts" :key="ctx" size="small" style="margin: 2px" :type="ctx === row.current_context ? 'primary' : ''">
@@ -543,15 +551,16 @@ const showEditDialog = (row) => {
 }
 
 const buildPayload = () => {
+  const isK8s = form.connection_type === 'kubernetes'
   const payload = {
     name: form.name,
     db_type: form.db_type,
-    host: form.host,
-    port: form.port,
+    host: isK8s ? null : form.host,
+    port: isK8s ? null : form.port,
     username: form.username,
     password: form.password || null,
     database_name: form.database_name || null,
-    ssl_enabled: form.connection_type === 'direct' ? form.ssl_enabled : false,
+    ssl_enabled: isK8s ? false : form.ssl_enabled,
     environment: form.environment,
     description: form.description || null,
     connection_type: form.connection_type,

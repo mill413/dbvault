@@ -20,28 +20,28 @@
         </div>
       </template>
 
-      <el-table :data="filteredAlerts" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="title" :label="$t('dashboard.title')" width="200" />
-        <el-table-column prop="alert_type" :label="$t('alert.alertType')" width="120" />
-        <el-table-column prop="severity" :label="$t('dashboard.severity')" width="100">
+      <el-table :data="filteredAlerts" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+        <el-table-column prop="id" label="ID" width="80" sortable />
+        <el-table-column prop="title" :label="$t('dashboard.title')" width="200" sortable />
+        <el-table-column prop="alert_type" :label="$t('alert.alertType')" width="120" sortable />
+        <el-table-column prop="severity" :label="$t('dashboard.severity')" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="getSeverityType(row.severity)" size="small">{{ row.severity }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" :label="$t('common.status')" width="100">
+        <el-table-column prop="status" :label="$t('common.status')" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="row.status === 'OPEN' ? 'danger' : 'success'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="resource_type" :label="$t('alert.resourceType')" width="120" />
-        <el-table-column prop="message" :label="$t('alert.message')" min-width="200" show-overflow-tooltip />
-        <el-table-column :label="$t('common.createTime')" width="180">
+        <el-table-column prop="resource_type" :label="$t('alert.resourceType')" width="120" sortable />
+        <el-table-column prop="message" :label="$t('alert.message')" min-width="200" show-overflow-tooltip sortable />
+        <el-table-column prop="created_at" :label="$t('common.createTime')" width="180" sortable>
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('alert.resolvedAt')" width="180">
+        <el-table-column prop="resolved_at" :label="$t('alert.resolvedAt')" width="180" sortable>
           <template #default="{ row }">
             {{ formatTime(row.resolved_at) }}
           </template>
