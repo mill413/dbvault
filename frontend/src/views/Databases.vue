@@ -151,7 +151,10 @@
           <el-form-item v-if="k8sSelectorType === 'pod_name'" :label="$t('database.k8sPodName')">
             <div style="display: flex; gap: 8px; width: 100%">
               <el-select v-model="form.k8s_config.pod_name" filterable allow-create style="flex: 1" :loading="k8sPodsLoading" @change="onPodChange">
-                <el-option v-for="pod in k8sPods" :key="pod.name" :label="pod.name" :value="pod.name" />
+                <el-option v-for="pod in k8sPods" :key="pod.name" :label="pod.name" :value="pod.name">
+                  <span style="float: left">{{ pod.name }}</span>
+                  <el-tag :type="getPodStatusType(pod.status)" size="small" style="float: right">{{ pod.status }}</el-tag>
+                </el-option>
               </el-select>
               <el-button @click="fetchK8sPods" :loading="k8sPodsLoading">
                 <el-icon><Refresh /></el-icon>
@@ -307,6 +310,11 @@ const rules = {
 const getEnvType = (env) => {
   const map = { prod: 'danger', test: 'warning', dev: 'info' }
   return map[env] || 'info'
+}
+
+const getPodStatusType = (status) => {
+  const map = { Running: 'success', Pending: 'warning', Failed: 'danger', Succeeded: 'info' }
+  return map[status] || 'info'
 }
 
 const fetchKubeconfigList = async () => {
