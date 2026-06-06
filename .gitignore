@@ -18,5 +18,5 @@ dbvault_backups/
 
 frontend/node_modules/
 
-*.tar
+**/*.tar
 *.zip
