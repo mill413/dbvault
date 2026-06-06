@@ -20,7 +20,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredAlerts" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="filteredAlerts" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="title" :label="$t('dashboard.title')" width="200" sortable />
         <el-table-column prop="alert_type" :label="$t('alert.alertType')" width="120" sortable />

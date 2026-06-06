@@ -129,6 +129,9 @@ body {
   border-bottom: 1px solid var(--border-color) !important;
   border-right: none !important;
 }
+.el-table .el-table__row--striped td.el-table__cell {
+  background-color: var(--bg-color-mute) !important;
+}
 
 /* Pagination */
 .el-pagination {

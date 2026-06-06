@@ -23,7 +23,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredUsers" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="filteredUsers" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="username" :label="$t('login.username')" min-width="120" sortable />
         <el-table-column prop="display_name" :label="$t('user.displayName')" min-width="130" sortable />

@@ -23,7 +23,7 @@
         </div>
       </template>
 
-      <el-table :data="backups" v-loading="loading" border style="width: 100%">
+      <el-table :data="backups" v-loading="loading" border stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="database_id" :label="$t('dashboard.database')" sortable>
           <template #default="{ row }">

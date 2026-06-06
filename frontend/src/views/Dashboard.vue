@@ -76,7 +76,7 @@
               <el-button type="primary" link @click="$router.push('/backups')">{{ $t('common.viewAll') }}</el-button>
             </div>
           </template>
-          <el-table :data="recentBackups" border style="width: 100%" size="default">
+          <el-table :data="recentBackups" border stripe style="width: 100%" size="default">
             <el-table-column prop="database_id" :label="$t('dashboard.database')" sortable>
               <template #default="{ row }">
                 {{ databaseMap[row.database_id] || `DB #${row.database_id}` }}
@@ -103,7 +103,7 @@
               <el-button type="primary" link @click="$router.push('/alerts')">{{ $t('common.viewAll') }}</el-button>
             </div>
           </template>
-          <el-table :data="recentAlerts" border style="width: 100%" size="default">
+          <el-table :data="recentAlerts" border stripe style="width: 100%" size="default">
             <el-table-column prop="title" :label="$t('dashboard.title')" show-overflow-tooltip sortable />
             <el-table-column prop="severity" :label="$t('dashboard.severity')" width="100" sortable>
               <template #default="{ row }">

@@ -18,7 +18,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredJobs" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="filteredJobs" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="name" :label="$t('job.name')" sortable />
         <el-table-column prop="database_id" :label="$t('dashboard.database')" sortable>

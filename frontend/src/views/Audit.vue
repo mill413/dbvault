@@ -14,7 +14,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredLogs" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="filteredLogs" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="action" :label="$t('audit.action')" width="180" sortable />
         <el-table-column prop="actor_user_id" :label="$t('audit.actor')" width="100" sortable />

@@ -24,7 +24,7 @@
         </div>
       </template>
 
-      <el-table :data="databases" v-loading="loading" border style="width: 100%" size="default" :empty-text="$t('common.noData')">
+      <el-table :data="databases" v-loading="loading" border stripe style="width: 100%" size="default" :empty-text="$t('common.noData')">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="name" :label="$t('database.name')" sortable />
         <el-table-column prop="db_type" :label="$t('database.type')" width="120" sortable>
@@ -209,7 +209,7 @@
       </div>
 
       <el-divider>{{ $t('database.k8sExistingClusters') }}</el-divider>
-      <el-table :data="kubeconfigList" v-loading="kubeconfigLoading" border size="small" :empty-text="$t('common.noData')">
+      <el-table :data="kubeconfigList" v-loading="kubeconfigLoading" border stripe size="small" :empty-text="$t('common.noData')">
         <el-table-column prop="name" :label="$t('database.k8sClusterName')" sortable />
         <el-table-column :label="$t('database.k8sContexts')" min-width="200">
           <template #default="{ row }">

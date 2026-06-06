@@ -21,7 +21,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredStorages" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="filteredStorages" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="name" :label="$t('storage.name')" sortable />
         <el-table-column prop="storage_type" :label="$t('storage.type')" width="120" sortable>

@@ -20,7 +20,7 @@
         </div>
       </template>
 
-      <el-table :data="restoreTasks" v-loading="loading" border style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="restoreTasks" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" :label="$t('restore.taskId')" width="80" sortable />
         <el-table-column prop="backup_id" :label="$t('restore.backupId')" width="100" sortable />
         <el-table-column prop="target_database_id" :label="$t('restore.targetDb')" width="150" sortable>
@@ -147,7 +147,7 @@
       </el-descriptions>
       <div style="margin-top: 20px">
         <h4>{{ $t('restore.logs') }}</h4>
-        <el-table :data="events" border style="width: 100%" max-height="300" size="default" empty-text="No data available">
+        <el-table :data="events" border stripe style="width: 100%" max-height="300" size="default" empty-text="No data available">
           <el-table-column prop="id" label="ID" width="80" sortable />
           <el-table-column prop="event_type" :label="$t('restore.eventType')" width="120" sortable />
           <el-table-column prop="message" :label="$t('alert.message')" min-width="200" show-overflow-tooltip sortable />
