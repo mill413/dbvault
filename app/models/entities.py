@@ -59,6 +59,8 @@ class DatabaseInstance(Base, TimestampMixin, SoftDeleteMixin):
     owner: Mapped[str | None] = mapped_column(String(128))
     tags: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
+    connection_type: Mapped[str] = mapped_column(String(32), default="direct", nullable=False)
+    k8s_config: Mapped[dict | None] = mapped_column(JSON)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
 
