@@ -18,8 +18,8 @@ class K8sConfigSchema(BaseModel):
 class DatabaseCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     db_type: str
-    host: str = "localhost"
-    port: int = Field(default=3306, gt=0, le=65535)
+    host: str | None = "localhost"
+    port: int | None = Field(default=3306, gt=0, le=65535)
     username: str
     password: str
     database_name: str | None = None
@@ -54,8 +54,8 @@ class DatabaseRead(ORMModel):
     id: int
     name: str
     db_type: str
-    host: str
-    port: int
+    host: str | None = None
+    port: int | None = None
     username: str
     database_name: str | None = None
     ssl_enabled: bool
