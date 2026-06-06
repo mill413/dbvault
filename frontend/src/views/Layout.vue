@@ -98,7 +98,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
@@ -116,27 +116,37 @@ const currentTitle = computed(() => route.meta.title || '')
 const userRole = computed(() => authStore.user?.role || '')
 const canView = (name) => canViewRoute(userRole.value, name)
 
-const isDark = ref(localStorage.getItem('theme') === 'dark')
+const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+const storedTheme = localStorage.getItem('theme')
+const isDark = ref(storedTheme ? storedTheme === 'dark' : mediaQuery.matches)
+
+const applyTheme = (dark) => {
+  document.documentElement.classList.toggle('dark', dark)
+}
 
 const toggleDark = (val) => {
-  if (val) {
-    document.documentElement.classList.add('dark')
-    localStorage.setItem('theme', 'dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-    localStorage.setItem('theme', 'light')
+  applyTheme(val)
+  localStorage.setItem('theme', val ? 'dark' : 'light')
+}
+
+const onMediaChange = (e) => {
+  if (!localStorage.getItem('theme')) {
+    isDark.value = e.matches
+    applyTheme(e.matches)
   }
 }
 
 onMounted(() => {
-  if (isDark.value) {
-    document.documentElement.classList.add('dark')
-  }
+  mediaQuery.addEventListener('change', onMediaChange)
 
   if (route.query.denied === '1') {
     ElMessage.warning(t('common.accessDenied'))
     router.replace({ path: route.path, query: {} })
   }
+})
+
+onUnmounted(() => {
+  mediaQuery.removeEventListener('change', onMediaChange)
 })
 
 const handleCommand = async (command) => {
