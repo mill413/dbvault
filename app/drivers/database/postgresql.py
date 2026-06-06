@@ -57,6 +57,17 @@ class PostgreSQLDriver(BackupDriver):
             duration_seconds=elapsed_since(start),
         )
 
+    def _clean_args(self) -> list[str]:
+        """Returns SQL to drop and recreate the public schema before restore."""
+        return [
+            "-c", "DROP SCHEMA IF EXISTS public CASCADE;",
+            "-c", "CREATE SCHEMA public;",
+        ]
+
     def restore(self, backup_file: Path, timeout_seconds: int = 21600):
+        # Step 1: clean the database
+        clean_args = ["psql", *self._conn_args(), *self._clean_args()]
+        run_command(clean_args, env=self._env(), timeout_seconds=60)
+        # Step 2: restore
         args = ["psql", *self._conn_args(), "--file", str(backup_file)]
         return run_command(args, env=self._env(), timeout_seconds=timeout_seconds)
