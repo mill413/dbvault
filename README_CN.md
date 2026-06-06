@@ -171,27 +171,6 @@ ruff check app tests alembic
 | MySQL        | localhost | 3306  | `orders`  | `backup` | `backup-password` |
 | PostgreSQL   | localhost | 15432 | `reports` | `backup` | `backup-password` |
 
-## 架构设计
-
-```text
-┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
-│  Vue 3 前端  │────▶│  FastAPI API  │────▶│   PostgreSQL    │
-│             │     │   (Uvicorn)   │     │    (元数据库)    │
-└─────────────┘     └──────┬───────┘     └─────────────────┘
-                           │
-                    ┌──────┴───────┐
-                    │    驱动层     │
-                    └──────┬───────┘
-                           │
-              ┌────────────┼────────────┬────────────┐
-              ▼            ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │  MySQL   │ │PostgreSQL│ │  K8s Pod │ │  MinIO   │
-        │  目标库   │ │  目标库   │ │ (kubectl │ │   S3     │
-        │          │ │          │ │   exec)  │ │          │
-        └──────────┘ └──────────┘ └──────────┘ └──────────┘
-```
-
 ## CI/CD
 
 每次推送到 `main` 分支时，GitHub Actions 会自动构建 Docker 镜像并发布到 Releases。
@@ -206,4 +185,4 @@ docker compose -f docker/docker-compose.yml up -d
 
 ## 许可证
 
-本项目仅供内部使用。
+本项目基于 MIT 许可证开源。详见 [LICENSE](LICENSE) 文件。

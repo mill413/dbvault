@@ -171,27 +171,6 @@ The development stack includes pre-configured sample databases:
 | MySQL      | localhost | 3306  | `orders`  | `backup` | `backup-password` |
 | PostgreSQL | localhost | 15432 | `reports` | `backup` | `backup-password` |
 
-## Architecture
-
-```text
-┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
-│  Vue 3 Web  │────▶│  FastAPI API  │────▶│   PostgreSQL    │
-│   Frontend  │     │   (Uvicorn)   │     │   (Metadata)    │
-└─────────────┘     └──────┬───────┘     └─────────────────┘
-                           │
-                    ┌──────┴───────┐
-                    │   Drivers    │
-                    └──────┬───────┘
-                           │
-              ┌────────────┼────────────┬────────────┐
-              ▼            ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │  MySQL   │ │PostgreSQL│ │  K8s Pod │ │  MinIO   │
-        │  Target  │ │  Target  │ │  (kubectl│ │   S3     │
-        │          │ │          │ │   exec)  │ │          │
-        └──────────┘ └──────────┘ └──────────┘ └──────────┘
-```
-
 ## CI/CD
 
 Docker images are automatically built and published to GitHub Releases on every push to `main`.
@@ -206,4 +185,4 @@ docker compose -f docker/docker-compose.yml up -d
 
 ## License
 
-This project is for internal use.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
