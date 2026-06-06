@@ -233,7 +233,9 @@ export default {
     capacityLimitPlaceholder: '留空表示不限制（单位 GB）',
     usedCapacity: '已用容量',
     capacityPercent: '使用率',
-    capacityWarning: '存储容量已超过 {percent}%'
+    capacityWarning: '存储容量已超过 {percent}%',
+    pathPlaceholder: '/var/lib/dbvault/backups',
+    pathHint: '留空时使用默认路径：/var/lib/dbvault/backups'
   },
   user: {
     title: '用户管理',

@@ -233,7 +233,9 @@ export default {
     capacityLimitPlaceholder: 'Leave empty for no limit (in GB)',
     usedCapacity: 'Used Capacity',
     capacityPercent: 'Usage',
-    capacityWarning: 'Storage capacity exceeds {percent}%'
+    capacityWarning: 'Storage capacity exceeds {percent}%',
+    pathPlaceholder: '/var/lib/dbvault/backups',
+    pathHint: 'Leave empty to use default path: /var/lib/dbvault/backups'
   },
   user: {
     title: 'User Management',

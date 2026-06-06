@@ -80,7 +80,10 @@
 
         <template v-if="form.storage_type === 'local'">
           <el-form-item :label="$t('storage.path')" prop="config.path">
-            <el-input v-model="form.config.path" placeholder="/path/to/backups" />
+            <el-input v-model="form.config.path" :placeholder="$t('storage.pathPlaceholder')" />
+            <div style="margin-top: 4px; color: #909399; font-size: 12px">
+              {{ $t('storage.pathHint') }}
+            </div>
           </el-form-item>
         </template>
 
