@@ -21,26 +21,26 @@
         </div>
       </template>
 
-      <el-table :data="filteredStorages" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="name" :label="$t('storage.name')" />
-        <el-table-column prop="storage_type" :label="$t('storage.type')" width="120">
+      <el-table :data="filteredStorages" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
+        <el-table-column prop="id" label="ID" width="80" sortable />
+        <el-table-column prop="name" :label="$t('storage.name')" sortable />
+        <el-table-column prop="storage_type" :label="$t('storage.type')" width="120" sortable>
           <template #default="{ row }">
             <el-tag>{{ row.storage_type.toUpperCase() }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_default" :label="$t('storage.isDefault')" width="100">
+        <el-table-column prop="is_default" :label="$t('storage.isDefault')" width="100" sortable>
           <template #default="{ row }">
             <el-tag v-if="row.is_default" type="success" size="small">{{ $t('common.yes') }}</el-tag>
             <el-tag v-else type="info" size="small">{{ $t('common.no') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" :label="$t('common.status')" width="100">
+        <el-table-column prop="status" :label="$t('common.status')" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('storage.capacityLimit')" width="140">
+        <el-table-column prop="capacity_limit_bytes" :label="$t('storage.capacityLimit')" width="140" sortable>
           <template #default="{ row }">
             {{ row.capacity_limit_bytes ? formatSize(row.capacity_limit_bytes) : '-' }}
           </template>
@@ -106,15 +106,21 @@
         </template>
 
         <el-form-item :label="$t('storage.capacityLimit')">
-          <el-input-number
-            v-model="form.capacity_limit_gb"
-            :min="0"
-            :step="1"
-            controls-position="right"
-            :placeholder="$t('storage.capacityLimitPlaceholder')"
-            style="width: 100%"
-          />
-          <span style="margin-left: 8px; color: #909399; font-size: 12px">GB</span>
+          <div style="display: flex; align-items: center; width: 100%">
+            <el-input-number
+              v-model="form.capacity_limit"
+              :min="0"
+              :step="1"
+              controls-position="right"
+              :placeholder="$t('storage.capacityLimitPlaceholder')"
+              style="flex: 1"
+            />
+            <el-select v-model="form.capacity_unit" style="width: 90px; margin-left: 8px">
+              <el-option label="MB" value="MB" />
+              <el-option label="GB" value="GB" />
+              <el-option label="TB" value="TB" />
+            </el-select>
+          </div>
         </el-form-item>
         <el-form-item :label="$t('storage.isDefault')">
           <el-switch v-model="form.is_default" />
@@ -154,6 +160,8 @@ const form = reactive({
   storage_type: 'local',
   config: {},
   is_default: false,
+  capacity_limit: null,
+  capacity_unit: 'GB',
 })
 
 const rules = {
@@ -197,20 +205,34 @@ const showCreateDialog = () => {
     storage_type: 'local',
     config: {},
     is_default: false,
-    capacity_limit_gb: null,
+    capacity_limit: null,
+    capacity_unit: 'GB',
   })
   dialogVisible.value = true
+}
+
+const getBestUnit = (bytes) => {
+  if (!bytes) return { value: null, unit: 'GB' }
+  const GB = 1024 ** 3
+  const TB = 1024 ** 4
+  const MB = 1024 ** 2
+  if (bytes >= TB && bytes % TB === 0) return { value: bytes / TB, unit: 'TB' }
+  if (bytes >= GB && bytes % GB === 0) return { value: bytes / GB, unit: 'GB' }
+  if (bytes >= MB) return { value: Math.round(bytes / MB * 100) / 100, unit: 'MB' }
+  return { value: bytes / GB, unit: 'GB' }
 }
 
 const showEditDialog = (row) => {
   isEdit.value = true
   editId.value = row.id
+  const capacity = getBestUnit(row.capacity_limit_bytes)
   Object.assign(form, {
     name: row.name,
     storage_type: row.storage_type,
     config: {},
     is_default: row.is_default,
-    capacity_limit_gb: row.capacity_limit_bytes ? row.capacity_limit_bytes / (1024 ** 3) : null,
+    capacity_limit: capacity.value,
+    capacity_unit: capacity.unit,
   })
   dialogVisible.value = true
 }
@@ -229,8 +251,9 @@ const handleSubmit = async () => {
         region: form.config.region,
       }
 
-  const capacity_limit_bytes = form.capacity_limit_gb && form.capacity_limit_gb > 0
-    ? Math.round(form.capacity_limit_gb * 1024 * 1024 * 1024)
+  const unitMultipliers = { MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 }
+  const capacity_limit_bytes = form.capacity_limit && form.capacity_limit > 0
+    ? Math.round(form.capacity_limit * unitMultipliers[form.capacity_unit])
     : null
 
   const payload = {

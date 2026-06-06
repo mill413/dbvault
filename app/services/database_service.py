@@ -10,11 +10,12 @@ def create_database(db: Session, payload, user: User) -> DatabaseInstance:
     k8s_data = None
     if hasattr(payload, "k8s_config") and payload.k8s_config is not None:
         k8s_data = payload.k8s_config.model_dump() if hasattr(payload.k8s_config, "model_dump") else payload.k8s_config
+    is_k8s = getattr(payload, "connection_type", "direct") == "kubernetes"
     instance = DatabaseInstance(
         name=payload.name,
         db_type=payload.db_type.lower(),
-        host=payload.host,
-        port=payload.port,
+        host=payload.host if not is_k8s else "",
+        port=payload.port if not is_k8s else 0,
         username=payload.username,
         password_encrypted=encrypt_secret(payload.password),
         database_name=payload.database_name,
@@ -37,6 +38,12 @@ def create_database(db: Session, payload, user: User) -> DatabaseInstance:
 def update_database(instance: DatabaseInstance, payload) -> DatabaseInstance:
     data = payload.model_dump(exclude_unset=True)
     password = data.pop("password", None)
+    conn_type = data.get("connection_type", instance.connection_type)
+    if conn_type == "kubernetes":
+        if "host" in data and data["host"] is None:
+            data["host"] = ""
+        if "port" in data and data["port"] is None:
+            data["port"] = 0
     for key, value in data.items():
         setattr(instance, key, value)
     if password is not None:

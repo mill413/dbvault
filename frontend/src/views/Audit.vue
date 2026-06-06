@@ -14,19 +14,19 @@
         </div>
       </template>
 
-      <el-table :data="filteredLogs" v-loading="loading" style="width: 100%" size="default" empty-text="No data available">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="action" :label="$t('audit.action')" width="180" />
-        <el-table-column prop="actor_user_id" :label="$t('audit.actor')" width="100" />
-        <el-table-column prop="resource_type" :label="$t('audit.resourceType')" width="120" />
-        <el-table-column prop="result" :label="$t('audit.result')" width="100">
+      <el-table :data="filteredLogs" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
+        <el-table-column prop="id" label="ID" width="80" sortable />
+        <el-table-column prop="action" :label="$t('audit.action')" width="180" sortable />
+        <el-table-column prop="actor_user_id" :label="$t('audit.actor')" width="100" sortable />
+        <el-table-column prop="resource_type" :label="$t('audit.resourceType')" width="120" sortable />
+        <el-table-column prop="result" :label="$t('audit.result')" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="row.result === 'success' ? 'success' : 'danger'" size="small">{{ row.result }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="ip_address" :label="$t('audit.ip')" width="140" />
-        <el-table-column prop="reason" :label="$t('audit.reason')" />
-        <el-table-column :label="$t('common.time')" width="180">
+        <el-table-column prop="ip_address" :label="$t('audit.ip')" width="140" sortable />
+        <el-table-column prop="reason" :label="$t('audit.reason')" sortable />
+        <el-table-column prop="created_at" :label="$t('common.time')" width="180" sortable>
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>

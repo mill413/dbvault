@@ -76,18 +76,18 @@
               <el-button type="primary" link @click="$router.push('/backups')">{{ $t('common.viewAll') }}</el-button>
             </div>
           </template>
-          <el-table :data="recentBackups" style="width: 100%" size="default">
-            <el-table-column :label="$t('dashboard.database')">
+          <el-table :data="recentBackups" border stripe style="width: 100%" size="default">
+            <el-table-column prop="database_id" :label="$t('dashboard.database')" sortable>
               <template #default="{ row }">
                 {{ databaseMap[row.database_id] || `DB #${row.database_id}` }}
               </template>
             </el-table-column>
-            <el-table-column prop="status" :label="$t('common.status')" width="120">
+            <el-table-column prop="status" :label="$t('common.status')" width="120" sortable>
               <template #default="{ row }">
                 <el-tag :type="getStatusType(row.status)" size="small" effect="light">{{ row.status }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('common.time')" width="160">
+            <el-table-column prop="created_at" :label="$t('common.time')" width="160" sortable>
               <template #default="{ row }">
                 {{ formatTime(row.created_at) }}
               </template>
@@ -103,14 +103,14 @@
               <el-button type="primary" link @click="$router.push('/alerts')">{{ $t('common.viewAll') }}</el-button>
             </div>
           </template>
-          <el-table :data="recentAlerts" style="width: 100%" size="default">
-            <el-table-column prop="title" :label="$t('dashboard.title')" show-overflow-tooltip />
-            <el-table-column prop="severity" :label="$t('dashboard.severity')" width="100">
+          <el-table :data="recentAlerts" border stripe style="width: 100%" size="default">
+            <el-table-column prop="title" :label="$t('dashboard.title')" show-overflow-tooltip sortable />
+            <el-table-column prop="severity" :label="$t('dashboard.severity')" width="100" sortable>
               <template #default="{ row }">
                 <el-tag :type="getSeverityType(row.severity)" size="small" effect="dark">{{ $t(`alert.severity${row.severity?.toUpperCase()}`) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('common.time')" width="160">
+            <el-table-column prop="created_at" :label="$t('common.time')" width="160" sortable>
               <template #default="{ row }">
                 {{ formatTime(row.created_at) }}
               </template>

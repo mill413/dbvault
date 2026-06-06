@@ -23,31 +23,31 @@
         </div>
       </template>
 
-      <el-table :data="backups" v-loading="loading" style="width: 100%">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column :label="$t('dashboard.database')">
+      <el-table :data="backups" v-loading="loading" border stripe style="width: 100%">
+        <el-table-column prop="id" label="ID" width="80" sortable />
+        <el-table-column prop="database_id" :label="$t('dashboard.database')" sortable>
           <template #default="{ row }">
             {{ getDatabaseName(row.database_id) }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.storage')" width="120">
+        <el-table-column prop="storage_id" :label="$t('common.storage')" width="120" sortable>
           <template #default="{ row }">
             {{ getStorageName(row.storage_id) }}
           </template>
         </el-table-column>
-        <el-table-column prop="backup_type" :label="$t('backup.type')" width="100" />
-        <el-table-column prop="status" :label="$t('common.status')" width="120">
+        <el-table-column prop="backup_type" :label="$t('backup.type')" width="100" sortable />
+        <el-table-column prop="status" :label="$t('common.status')" width="120" sortable>
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="size_bytes" :label="$t('backup.size')" width="120">
+        <el-table-column prop="size_bytes" :label="$t('backup.size')" width="120" sortable>
           <template #default="{ row }">
             {{ formatSize(row.size_bytes) }}
           </template>
         </el-table-column>
-        <el-table-column prop="compression" :label="$t('backup.compression')" width="80" />
-        <el-table-column :label="$t('common.createTime')" width="180">
+        <el-table-column prop="compression" :label="$t('backup.compression')" width="80" sortable />
+        <el-table-column prop="created_at" :label="$t('common.createTime')" width="180" sortable>
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>

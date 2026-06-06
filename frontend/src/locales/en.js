@@ -261,7 +261,7 @@ export default {
     nameRequired: 'Please enter a storage name',
     typeRequired: 'Please select a storage type',
     capacityLimit: 'Capacity Limit',
-    capacityLimitPlaceholder: 'Leave empty for no limit (in GB)',
+    capacityLimitPlaceholder: 'Leave empty for no limit',
     usedCapacity: 'Used Capacity',
     capacityPercent: 'Usage',
     capacityWarning: 'Storage capacity exceeds {percent}%',
