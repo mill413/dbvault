@@ -1,86 +1,81 @@
 services:
   api:
     image: dbvault-api:latest
+    network_mode: host
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       DBVAULT_ENV: dev
-      DBVAULT_DATABASE_URL: postgresql+psycopg://dbvault:dbvault@postgres:5432/dbvault
-      DBVAULT_REDIS_URL: redis://redis:6379/0
+      DBVAULT_DATABASE_URL: postgresql+psycopg://dbvault:dbvault@127.0.0.1:15432/dbvault
+      DBVAULT_REDIS_URL: redis://127.0.0.1:16379/0
       DBVAULT_JWT_SECRET: local-development-secret
       DBVAULT_BACKUP_TMP_DIR: /var/lib/dbvault/tmp
       DBVAULT_LOCAL_STORAGE_ROOT: /var/lib/dbvault/backups
+      DBVAULT_KUBECONFIG_DIR: /var/lib/dbvault/kubeconfigs
       DBVAULT_ENABLE_REGISTRATION: "true"
     volumes:
       - ..:/app
       - dbvault-data:/var/lib/dbvault
-    ports:
-      - "8000:8000"
     depends_on:
       - postgres
       - redis
-      - minio
+      # - minio
 
   frontend:
     image: dbvault-frontend:latest
-    command: npm run dev -- --host 0.0.0.0
+    network_mode: host
+    command: npm run dev -- --host 0.0.0.0 --port 5173
     environment:
-      VITE_API_PROXY_TARGET: http://api:8000
+      VITE_API_PROXY_TARGET: http://127.0.0.1:8000
     volumes:
       - ../frontend:/app
       - /app/node_modules
-    ports:
-      - "5173:3000"
     depends_on:
       - api
 
   postgres:
     image: postgres:16
+    network_mode: host
+    command: postgres -p 15432
     environment:
       POSTGRES_DB: dbvault
       POSTGRES_USER: dbvault
       POSTGRES_PASSWORD: dbvault
-    ports:
-      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
   redis:
     image: redis:7
-    ports:
-      - "6379:6379"
+    network_mode: host
+    command: redis-server --port 16379
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio-data:/data
+  # minio:
+  #   image: minio/minio:latest
+  #   network_mode: host
+  #   command: server /data --console-address ":9001"
+  #   environment:
+  #     MINIO_ROOT_USER: minioadmin
+  #     MINIO_ROOT_PASSWORD: minioadmin
+  #   volumes:
+  #     - minio-data:/data
 
   # mysql-source:
   #   image: mysql:8.4
+  #   network_mode: host
   #   environment:
   #     MYSQL_ROOT_PASSWORD: root-password
   #     MYSQL_DATABASE: orders
   #     MYSQL_USER: backup
   #     MYSQL_PASSWORD: backup-password
-  #   ports:
-  #     - "3306:3306"
   #   volumes:
   #     - mysql-source-data:/var/lib/mysql
 
   # postgres-source:
   #   image: postgres:16
+  #   network_mode: host
   #   environment:
   #     POSTGRES_DB: reports
   #     POSTGRES_USER: backup
   #     POSTGRES_PASSWORD: backup-password
-  #   ports:
-  #     - "15432:5432"
   #   volumes:
   #     - postgres-source-data:/var/lib/postgresql/data
 

@@ -7,6 +7,9 @@ from app.models import DatabaseInstance, User
 
 
 def create_database(db: Session, payload, user: User) -> DatabaseInstance:
+    k8s_data = None
+    if hasattr(payload, "k8s_config") and payload.k8s_config is not None:
+        k8s_data = payload.k8s_config.model_dump() if hasattr(payload.k8s_config, "model_dump") else payload.k8s_config
     instance = DatabaseInstance(
         name=payload.name,
         db_type=payload.db_type.lower(),
@@ -21,6 +24,8 @@ def create_database(db: Session, payload, user: User) -> DatabaseInstance:
         owner=payload.owner,
         tags=payload.tags,
         description=payload.description,
+        connection_type=getattr(payload, "connection_type", "direct"),
+        k8s_config=k8s_data,
         created_by=user.id,
     )
     db.add(instance)
