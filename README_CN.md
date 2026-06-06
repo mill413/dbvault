@@ -12,6 +12,7 @@ DBVault 提供统一的管理界面，用于调度、执行和监控跨基础设
 
 - **无代理备份** — 无需在目标主机安装代理即可进行远程逻辑备份
 - **多数据库支持** — MySQL、PostgreSQL、MariaDB（可扩展架构）
+- **Kubernetes 集成** — 通过 kubeconfig 对数据库 Pod 进行备份和恢复，支持命名空间/Pod/标签选择
 - **灵活存储** — 本地文件系统、MinIO 及 S3 兼容对象存储
 - **定时任务** — 基于 APScheduler 的 Cron 和间隔调度
 - **备份校验** — SHA256/MD5 校验和，恢复前完整性检查
@@ -21,6 +22,7 @@ DBVault 提供统一的管理界面，用于调度、执行和监控跨基础设
 - **自助注册** — 可配置的用户自助注册开关
 - **仪表盘** — 实时备份趋势、存储用量和告警概览
 - **RESTful API** — 完整的 CRUD 接口，自动生成 OpenAPI 文档
+- **CI/CD** — 基于 GitHub Actions 自动构建 Docker 镜像并发布到 Releases
 - **国际化** — 完整的中英文界面支持
 
 ## 技术栈
@@ -126,6 +128,7 @@ dbvault/
 ├── app/                    # 后端应用
 │   ├── api/v1/            # REST API 端点
 │   ├── core/              # 配置、安全、日志
+│   ├── drivers/           # 数据库和存储驱动实现
 │   ├── models/            # SQLAlchemy 模型
 │   ├── schemas/           # Pydantic 请求/响应模型
 │   └── services/          # 业务逻辑层
@@ -139,10 +142,11 @@ dbvault/
 │   │   └── utils/         # 共享工具函数
 │   └── vite.config.js
 ├── docker/                # Docker 配置和部署脚本
-│   ├── Dockerfile         # API 服务镜像
+│   ├── Dockerfile         # API 服务镜像（多阶段构建含 kubectl）
 │   ├── Dockerfile.frontend # 前端服务镜像
 │   ├── docker-compose.yml
 │   └── deploy.sh          # 部署自动化脚本
+├── .github/workflows/     # GitHub Actions CI/CD
 ├── tests/                 # 后端测试套件
 ├── design.md              # 详细设计文档
 └── pyproject.toml         # Python 项目配置
@@ -176,15 +180,28 @@ ruff check app tests alembic
 └─────────────┘     └──────┬───────┘     └─────────────────┘
                            │
                     ┌──────┴───────┐
-                    │    服务层     │
+                    │    驱动层     │
                     └──────┬───────┘
                            │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │  MySQL   │ │PostgreSQL│ │  MinIO   │
-        │  目标库   │ │  目标库   │ │   S3     │
-        └──────────┘ └──────────┘ └──────────┘
+              ┌────────────┼────────────┬────────────┐
+              ▼            ▼            ▼            ▼
+        ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+        │  MySQL   │ │PostgreSQL│ │  K8s Pod │ │  MinIO   │
+        │  目标库   │ │  目标库   │ │ (kubectl │ │   S3     │
+        │          │ │          │ │   exec)  │ │          │
+        └──────────┘ └──────────┘ └──────────┘ └──────────┘
+```
+
+## CI/CD
+
+每次推送到 `main` 分支时，GitHub Actions 会自动构建 Docker 镜像并发布到 Releases。
+
+**下载并加载预构建镜像：**
+
+```bash
+gh release download --repo mill413/dbvault -p '*.tar.gz'
+docker load -i dbvault-images-*.tar.gz
+docker compose -f docker/docker-compose.yml up -d
 ```
 
 ## 许可证

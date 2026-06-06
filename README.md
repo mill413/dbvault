@@ -12,6 +12,7 @@ DBVault provides a unified management interface for scheduling, executing, and m
 
 - **Agentless Backups** — Remote logical backups without installing agents on target hosts
 - **Multi-Database Support** — MySQL, PostgreSQL, MariaDB (extensible architecture)
+- **Kubernetes Integration** — Backup and restore database Pods via kubeconfig, supporting namespace/Pod/label selection
 - **Flexible Storage** — Local filesystem, MinIO, and S3-compatible object storage
 - **Scheduled Jobs** — Cron and interval-based scheduling with APScheduler
 - **Backup Verification** — SHA256/MD5 checksums with pre-restore integrity checks
@@ -21,6 +22,7 @@ DBVault provides a unified management interface for scheduling, executing, and m
 - **Self-Registration** — Optional user self-registration with configurable toggle
 - **Dashboard** — Real-time backup trends, storage usage, and alert overview
 - **RESTful API** — Complete CRUD with auto-generated OpenAPI documentation
+- **CI/CD** — Automated Docker image builds and releases via GitHub Actions
 - **i18n** — Full Chinese and English interface support
 
 ## Tech Stack
@@ -126,6 +128,7 @@ dbvault/
 ├── app/                    # Backend application
 │   ├── api/v1/            # REST API endpoints
 │   ├── core/              # Configuration, security, logging
+│   ├── drivers/           # Database and storage driver implementations
 │   ├── models/            # SQLAlchemy models
 │   ├── schemas/           # Pydantic request/response schemas
 │   └── services/          # Business logic layer
@@ -139,10 +142,11 @@ dbvault/
 │   │   └── utils/         # Shared utilities
 │   └── vite.config.js
 ├── docker/                # Docker configuration and deploy scripts
-│   ├── Dockerfile         # API service image
+│   ├── Dockerfile         # API service image (multi-stage with kubectl)
 │   ├── Dockerfile.frontend # Frontend service image
 │   ├── docker-compose.yml
 │   └── deploy.sh          # Deployment automation script
+├── .github/workflows/     # GitHub Actions CI/CD
 ├── tests/                 # Backend test suite
 ├── design.md              # Detailed design document
 └── pyproject.toml         # Python project configuration
@@ -176,15 +180,28 @@ The development stack includes pre-configured sample databases:
 └─────────────┘     └──────┬───────┘     └─────────────────┘
                            │
                     ┌──────┴───────┐
-                    │   Services   │
+                    │   Drivers    │
                     └──────┬───────┘
                            │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │  MySQL   │ │PostgreSQL│ │  MinIO   │
-        │  Target  │ │  Target  │ │   S3     │
-        └──────────┘ └──────────┘ └──────────┘
+              ┌────────────┼────────────┬────────────┐
+              ▼            ▼            ▼            ▼
+        ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+        │  MySQL   │ │PostgreSQL│ │  K8s Pod │ │  MinIO   │
+        │  Target  │ │  Target  │ │  (kubectl│ │   S3     │
+        │          │ │          │ │   exec)  │ │          │
+        └──────────┘ └──────────┘ └──────────┘ └──────────┘
+```
+
+## CI/CD
+
+Docker images are automatically built and published to GitHub Releases on every push to `main`.
+
+**Download and load pre-built images:**
+
+```bash
+gh release download --repo mill413/dbvault -p '*.tar.gz'
+docker load -i dbvault-images-*.tar.gz
+docker compose -f docker/docker-compose.yml up -d
 ```
 
 ## License
