@@ -206,8 +206,8 @@ const handleCommand = async (command) => {
 }
 
 .header {
-  background: white;
-  border-bottom: 1px solid #eff2f5;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -219,7 +219,7 @@ const handleCommand = async (command) => {
 .header-left .page-title {
   font-size: 20px;
   font-weight: 700;
-  color: #181c32;
+  color: var(--text-color);
 }
 
 .user-profile {
@@ -233,13 +233,13 @@ const handleCommand = async (command) => {
 }
 
 .user-profile:hover {
-  background: #f5f8fa;
+  background: var(--bg-color-mute);
 }
 
 .avatar {
   width: 36px;
   height: 36px;
-  background: #eef3f7;
+  background: var(--bg-color-mute);
   color: var(--el-color-primary);
   border-radius: 8px;
   display: flex;
@@ -256,16 +256,16 @@ const handleCommand = async (command) => {
 .username {
   font-weight: 600;
   font-size: 14px;
-  color: #3f4254;
+  color: var(--text-color);
 }
 
 .role {
   font-size: 12px;
-  color: #a1a5b7;
+  color: var(--text-muted);
 }
 
 .dropdown-icon {
-  color: #a1a5b7;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
