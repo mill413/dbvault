@@ -27,3 +27,11 @@ export function testDatabaseConnection(data) {
 export function testSavedDatabase(id) {
   return api.post(`/databases/${id}/test`)
 }
+
+export function getK8sNamespaces(params) {
+  return api.get('/databases/k8s/namespaces', { params })
+}
+
+export function getK8sPods(params) {
+  return api.get('/databases/k8s/pods', { params })
+}

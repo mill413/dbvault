@@ -23,6 +23,11 @@ usage() {
     echo "  $0 -p myproject -b -a         # 仅构建 API 镜像后部署"
     echo "  $0 -d                         # 停止所有容器"
     echo "  $0 -D                         # 停止所有容器并删除数据卷"
+    echo ""
+    echo "K8s 支持说明:"
+    echo "  K8s 集群配置现在通过前端界面管理，无需手动配置 kubeconfig。"
+    echo "  部署后在前端的「数据库实例」页面中添加 K8s 类型的数据库时，"
+    echo "  可以直接上传 kubeconfig 文件。"
 }
 
 PROJECT_NAME="dbvault"
