@@ -98,6 +98,7 @@ export default {
     enableSsl: '启用SSL',
     desc: '描述',
     testSuccess: '连接测试成功',
+    testFailed: '连接测试失败',
     deleteConfirm: '确定要删除实例 "{name}" 吗？',
     envProd: '生产',
     envTest: '测试',

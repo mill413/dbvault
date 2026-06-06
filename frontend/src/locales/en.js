@@ -98,6 +98,7 @@ export default {
     enableSsl: 'Enable SSL',
     desc: 'Description',
     testSuccess: 'Connection successful',
+    testFailed: 'Connection failed',
     deleteConfirm: 'Are you sure you want to delete instance "{name}"?',
     envProd: 'Production',
     envTest: 'Testing',

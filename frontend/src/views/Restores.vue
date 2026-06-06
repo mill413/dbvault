@@ -6,7 +6,7 @@
           <span>{{ $t('restore.title') }}</span>
           <div class="header-filters">
             <el-select v-model="filterStatus" :placeholder="$t('restore.statusFilter')" clearable style="width: 140px" @change="fetchData">
-              <el-option label="完成" value="COMPLETED" />
+              <el-option label="完成" value="SUCCESS" />
               <el-option label="运行中" value="RUNNING" />
               <el-option label="失败" value="FAILED" />
               <el-option label="待处理" value="PENDING" />
@@ -204,7 +204,7 @@ const restoreRules = {
 }
 
 const getStatusType = (status) => {
-  const map = { COMPLETED: 'success', RUNNING: 'warning', FAILED: 'danger', PENDING: 'info', CANCELLED: 'info' }
+  const map = { SUCCESS: 'success', RUNNING: 'warning', FAILED: 'danger', PENDING: 'info', CANCELLED: 'info' }
   return map[status] || 'info'
 }
 

@@ -120,7 +120,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getDatabases, createDatabase, updateDatabase, deleteDatabase, testSavedDatabase } from '../api/databases'
@@ -153,14 +153,14 @@ const form = reactive({
   description: '',
 })
 
-const rules = {
+const rules = computed(() => ({
   name: [{ required: true, message: t('database.name'), trigger: 'blur' }],
   db_type: [{ required: true, message: t('database.type'), trigger: 'change' }],
   host: [{ required: true, message: t('database.host'), trigger: 'blur' }],
   port: [{ required: true, message: t('database.port'), trigger: 'blur' }],
   username: [{ required: true, message: t('database.username'), trigger: 'blur' }],
-  password: [{ required: true, message: t('database.password'), trigger: 'blur' }],
-}
+  password: [{ required: !isEdit.value, message: t('database.password'), trigger: 'blur' }],
+}))
 
 const getEnvType = (env) => {
   const map = { prod: 'danger', test: 'warning', dev: 'info' }
@@ -234,11 +234,15 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
+    const payload = { ...form }
+    if (isEdit.value && !payload.password) {
+      payload.password = null
+    }
     if (isEdit.value) {
-      await updateDatabase(editId.value, form)
+      await updateDatabase(editId.value, payload)
       ElMessage.success(t('database.testSuccess'))
     } else {
-      await createDatabase(form)
+      await createDatabase(payload)
       ElMessage.success(t('database.testSuccess'))
     }
     dialogVisible.value = false
@@ -265,10 +269,15 @@ const handleDelete = async (row) => {
 
 const testConnection = async (row) => {
   try {
-    await testSavedDatabase(row.id)
-    ElMessage.success(t('database.testSuccess'))
+    const res = await testSavedDatabase(row.id)
+    const data = res.data || res
+    if (data.ok) {
+      ElMessage.success(t('database.testSuccess'))
+    } else {
+      ElMessage.error(data.message || t('database.testFailed'))
+    }
   } catch (error) {
-    console.error('Connection test failed:', error)
+    ElMessage.error(error?.response?.data?.error?.message || t('database.testFailed'))
   }
 }
 
