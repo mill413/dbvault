@@ -12,6 +12,10 @@
               <el-option label="失败" value="FAILED" />
               <el-option label="待处理" value="PENDING" />
             </el-select>
+            <el-select v-model="filterSourceType" :placeholder="$t('backup.sourceFilter')" clearable style="width: 140px" @change="fetchData">
+              <el-option :label="$t('backup.sourceManual')" value="MANUAL" />
+              <el-option :label="$t('backup.sourceScheduled')" value="SCHEDULED" />
+            </el-select>
             <el-select v-model="filterDatabaseId" :placeholder="$t('backup.selectDb')" clearable style="width: 180px" @change="fetchData">
               <el-option v-for="db in databases" :key="db.id" :label="db.name" :value="db.id" />
             </el-select>
@@ -36,6 +40,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="backup_type" :label="$t('backup.type')" width="100" sortable />
+        <el-table-column prop="source_type" :label="$t('backup.source')" width="110" sortable>
+          <template #default="{ row }">
+            <el-tag size="small" effect="plain">{{ getSourceLabel(row.source_type) }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" :label="$t('common.status')" width="120" sortable>
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">{{ row.status }}</el-tag>
@@ -55,7 +64,7 @@
         <el-table-column :label="$t('common.actions')" width="200" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleVerify(row)" :disabled="row.status !== 'AVAILABLE'">{{ $t('backup.verify') }}</el-button>
-            <el-button size="small" type="primary" @click="handleDownload(row)">{{ $t('backup.download') }}</el-button>
+            <el-button size="small" type="primary" @click="handleDownload(row)" :disabled="row.status !== 'AVAILABLE'">{{ $t('backup.download') }}</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">{{ $t('common.delete') }}</el-button>
           </template>
         </el-table-column>
@@ -126,6 +135,7 @@ const pageSize = ref(20)
 const total = ref(0)
 const { t } = useI18n()
 const filterStatus = ref('')
+const filterSourceType = ref('')
 const filterDatabaseId = ref(null)
 
 const backupForm = reactive({
@@ -141,8 +151,16 @@ const backupRules = {
 }
 
 const getStatusType = (status) => {
-  const map = { COMPLETED: 'success', RUNNING: 'warning', FAILED: 'danger', PENDING: 'info' }
+  const map = { AVAILABLE: 'success', COMPLETED: 'success', RUNNING: 'warning', FAILED: 'danger', PENDING: 'info' }
   return map[status] || 'info'
+}
+
+const getSourceLabel = (sourceType) => {
+  const map = {
+    MANUAL: t('backup.sourceManual'),
+    SCHEDULED: t('backup.sourceScheduled'),
+  }
+  return map[sourceType] || sourceType || '-'
 }
 
 const getDatabaseName = (id) => {
@@ -166,6 +184,9 @@ const fetchData = async () => {
     const params = { page: page.value, page_size: pageSize.value }
     if (filterStatus.value) {
       params.status = filterStatus.value
+    }
+    if (filterSourceType.value) {
+      params.source_type = filterSourceType.value
     }
     if (filterDatabaseId.value) {
       params.database_id = filterDatabaseId.value

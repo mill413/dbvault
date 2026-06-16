@@ -16,8 +16,8 @@ export function updateJob(id, data) {
   return api.put(`/jobs/${id}`, data)
 }
 
-export function deleteJob(id) {
-  return api.delete(`/jobs/${id}`)
+export function deleteJob(id, params = {}) {
+  return api.delete(`/jobs/${id}`, { params })
 }
 
 export function enableJob(id) {

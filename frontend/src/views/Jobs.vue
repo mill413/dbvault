@@ -114,10 +114,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElCheckbox, ElMessage, ElMessageBox } from 'element-plus'
 import { getJobs, createJob, updateJob, deleteJob, enableJob, disableJob } from '../api/jobs'
 import { getDatabases } from '../api/databases'
 import { getStorages } from '../api/storages'
@@ -305,8 +305,28 @@ const handleToggle = async (row) => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(t('job.deleteConfirm', { name: row.name }), t('common.confirm'), { type: 'warning' })
-    await deleteJob(row.id)
+    let deleteAssociatedBackups = false
+    await ElMessageBox({
+      title: t('common.confirm'),
+      message: h('div', { class: 'delete-job-message' }, [
+        h('p', null, t('job.deleteConfirm', { name: row.name })),
+        h(
+          ElCheckbox,
+          {
+            modelValue: deleteAssociatedBackups,
+            'onUpdate:modelValue': (value) => {
+              deleteAssociatedBackups = value
+            },
+          },
+          () => t('job.deleteAssociatedBackups')
+        ),
+      ]),
+      showCancelButton: true,
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning',
+    })
+    await deleteJob(row.id, { delete_backups: deleteAssociatedBackups })
     ElMessage.success('删除成功')
     fetchData()
   } catch (error) {
@@ -334,5 +354,9 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+:global(.delete-job-message p) {
+  margin: 0 0 12px;
 }
 </style>
