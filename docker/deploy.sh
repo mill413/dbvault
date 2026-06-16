@@ -11,16 +11,20 @@ usage() {
     echo "  -p <project>             指定项目名称（默认: dbvault）"
     echo "  -b, --build              构建镜像后再部署"
     echo "  -n, --no-build           使用已有镜像部署（默认）"
-    echo "  -a, --api-only           仅构建/部署 API 服务"
-    echo "  -f, --frontend-only      仅构建/部署前端服务"
+    echo "  -a, --api-only           仅构建/部署/导出 API 服务"
+    echo "  -f, --frontend-only      仅构建/部署/导出前端服务"
     echo "  -d, --down               停止并删除所有容器"
     echo "  -D, --down-v             停止并删除所有容器和数据卷"
+    echo "  -e, --export             导出镜像为 tar 包"
+    echo "  -o, --output <dir>       指定导出目录（默认: 当前目录）"
     echo "  -h, --help               显示帮助信息"
     echo ""
     echo "示例:"
     echo "  $0 -p myproject               # 使用 myproject 作为项目名部署"
     echo "  $0 -p myproject -b            # 构建所有镜像后部署"
     echo "  $0 -p myproject -b -a         # 仅构建 API 镜像后部署"
+    echo "  $0 -e                         # 导出所有镜像到当前目录"
+    echo "  $0 -e -a -o /tmp              # 仅导出 API 镜像到 /tmp"
     echo "  $0 -d                         # 停止所有容器"
     echo "  $0 -D                         # 停止所有容器并删除数据卷"
     echo ""
@@ -36,6 +40,8 @@ API_ONLY=false
 FRONTEND_ONLY=false
 DOWN=false
 DOWN_V=false
+EXPORT=false
+OUTPUT_DIR="."
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -67,6 +73,14 @@ while [[ $# -gt 0 ]]; do
             DOWN_V=true
             shift
             ;;
+        -e|--export)
+            EXPORT=true
+            shift
+            ;;
+        -o|--output)
+            OUTPUT_DIR="$2"
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -92,6 +106,26 @@ fi
 if [ "$DOWN" = true ]; then
     echo "停止并删除所有容器..."
     docker compose down
+    exit 0
+fi
+
+if [ "$EXPORT" = true ]; then
+    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+    mkdir -p "$OUTPUT_DIR"
+
+    if [ "$API_ONLY" = true ]; then
+        echo "导出 API 镜像..."
+        docker save dbvault-api:latest -o "$OUTPUT_DIR/dbvault-api-${TIMESTAMP}.tar"
+        echo "API 镜像已导出: $OUTPUT_DIR/dbvault-api-${TIMESTAMP}.tar"
+    elif [ "$FRONTEND_ONLY" = true ]; then
+        echo "导出前端镜像..."
+        docker save dbvault-frontend:latest -o "$OUTPUT_DIR/dbvault-frontend-${TIMESTAMP}.tar"
+        echo "前端镜像已导出: $OUTPUT_DIR/dbvault-frontend-${TIMESTAMP}.tar"
+    else
+        echo "导出所有镜像..."
+        docker save dbvault-api:latest dbvault-frontend:latest -o "$OUTPUT_DIR/dbvault-all-${TIMESTAMP}.tar"
+        echo "所有镜像已导出: $OUTPUT_DIR/dbvault-all-${TIMESTAMP}.tar"
+    fi
     exit 0
 fi
 
