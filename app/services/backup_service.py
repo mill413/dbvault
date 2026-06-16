@@ -56,6 +56,25 @@ def create_backup_task(db: Session, payload, user: User, trigger_type: str = "MA
     db.add(task)
     db.commit()
     db.refresh(task)
+    backup = Backup(
+        database_id=instance.id,
+        storage_id=storage.id,
+        backup_task_id=task.id,
+        backup_type="LOGICAL",
+        status=task.status,
+        object_key="",
+        filename=f"backup-task-{task.id}",
+        file_format="pending",
+        size_bytes=0,
+        compressed=payload.compression != "none",
+        compression=payload.compression if payload.compression != "none" else None,
+        sha256="",
+        expires_at=calculate_expires_at(payload.retention),
+        created_by=user.id,
+        extra_metadata={"source": "driver"},
+    )
+    db.add(backup)
+    db.commit()
     add_task_event(db, task_type="backup", task_id=task.id, level="INFO", message="Task created")
     return task
 
@@ -70,6 +89,10 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
     task.phase = "DUMPING"
     task.progress = 5
     task.started_at = datetime.now(UTC)
+    backup = db.query(Backup).filter(Backup.backup_task_id == task.id).first()
+    if backup:
+        backup.status = "RUNNING"
+        backup.started_at = task.started_at
     db.commit()
     add_task_event(db, task_type="backup", task_id=task.id, level="INFO", phase="DUMPING", message="Dump started")
 
@@ -118,29 +141,46 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
         sha256 = file_checksum(compressed_file, "sha256")
         md5 = file_checksum(compressed_file, "md5") if "md5" in task.config.get("checksum", []) else None
 
-        backup = Backup(
-            database_id=instance.id,
-            storage_id=storage.id,
-            backup_task_id=task.id,
-            backup_type="LOGICAL",
-            status="UPLOADING",
-            object_key="pending",
-            filename=compressed_file.name,
-            file_format=backup_result.file_format,
-            size_bytes=compressed_file.stat().st_size,
-            compressed=compressed,
-            compression=compression_name if compressed else None,
-            md5=md5,
-            sha256=sha256,
-            database_version=backup_result.database_version,
-            started_at=task.started_at,
-            expires_at=calculate_expires_at(task.config.get("retention", {})),
-            created_by=task.created_by,
-            extra_metadata={"source": "driver"},
-        )
-        db.add(backup)
-        db.commit()
-        db.refresh(backup)
+        backup = db.query(Backup).filter(Backup.backup_task_id == task.id).first()
+        if not backup:
+            backup = Backup(
+                database_id=instance.id,
+                storage_id=storage.id,
+                backup_task_id=task.id,
+                backup_type="LOGICAL",
+                status="UPLOADING",
+                object_key="pending",
+                filename=compressed_file.name,
+                file_format=backup_result.file_format,
+                size_bytes=compressed_file.stat().st_size,
+                compressed=compressed,
+                compression=compression_name if compressed else None,
+                md5=md5,
+                sha256=sha256,
+                database_version=backup_result.database_version,
+                started_at=task.started_at,
+                expires_at=calculate_expires_at(task.config.get("retention", {})),
+                created_by=task.created_by,
+                extra_metadata={"source": "driver"},
+            )
+            db.add(backup)
+            db.commit()
+            db.refresh(backup)
+        else:
+            backup.status = "UPLOADING"
+            backup.object_key = "pending"
+            backup.filename = compressed_file.name
+            backup.file_format = backup_result.file_format
+            backup.size_bytes = compressed_file.stat().st_size
+            backup.compressed = compressed
+            backup.compression = compression_name if compressed else None
+            backup.md5 = md5
+            backup.sha256 = sha256
+            backup.database_version = backup_result.database_version
+            backup.started_at = task.started_at
+            backup.expires_at = calculate_expires_at(task.config.get("retention", {}))
+            db.commit()
+            db.refresh(backup)
 
         extension = compressed_file.name.split(".", 1)[1] if "." in compressed_file.name else compressed_file.suffix
         object_key = build_backup_object_key(
@@ -180,6 +220,10 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
         task.error_message = exc.message if isinstance(exc, AppError) else str(exc)
         task.ended_at = datetime.now(UTC)
         task.duration_seconds = round(monotonic() - start, 3)
+        backup = db.query(Backup).filter(Backup.backup_task_id == task.id).first()
+        if backup:
+            backup.status = "FAILED"
+            backup.completed_at = task.ended_at
         db.commit()
         add_task_event(
             db,
@@ -284,3 +328,15 @@ def verify_backup(db: Session, backup: Backup) -> dict:
         return {"ok": ok, "expected_sha256": backup.sha256, "actual_sha256": actual}
     finally:
         local_path.unlink(missing_ok=True)
+
+
+def delete_backup_record(db: Session, backup: Backup) -> Backup:
+    backup.status = "DELETING"
+    db.commit()
+    if backup.object_key and backup.object_key != "pending":
+        build_storage_driver(backup.storage).delete(backup.object_key)
+    backup.status = "DELETED"
+    backup.deleted_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(backup)
+    return backup

@@ -63,8 +63,33 @@ def test_backup_run_uses_driver_and_creates_available_backup(client, admin_heade
     assert task.json()["status"] == "SUCCESS"
     assert backups.json()["total"] == 1
     assert backups.json()["items"][0]["status"] == "AVAILABLE"
+    assert backups.json()["items"][0]["source_type"] == "MANUAL"
     assert backups.json()["items"][0]["md5"] is not None
     assert any(event["message"] == "Backup completed" for event in events.json())
+
+
+def test_failed_backup_task_is_visible_in_backup_list(client, admin_headers, tmp_path):
+    registry.register_database("mysql", FakeMySQLDriver)
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers)
+
+    response = client.post(
+        "/api/v1/backups/run",
+        headers=admin_headers,
+        json={
+            "database_id": database_id,
+            "storage_id": storage_id,
+            "compression": "missing-driver",
+            "checksum": ["sha256"],
+        },
+    )
+    assert response.status_code == 200, response.text
+
+    backups = client.get("/api/v1/backups?status=FAILED", headers=admin_headers)
+    assert backups.status_code == 200
+    assert backups.json()["total"] == 1
+    assert backups.json()["items"][0]["status"] == "FAILED"
+    assert backups.json()["items"][0]["source_type"] == "MANUAL"
 
 
 def test_restore_run_validates_checksum_and_uses_driver(client, admin_headers, tmp_path):

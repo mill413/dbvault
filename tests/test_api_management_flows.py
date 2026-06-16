@@ -106,7 +106,9 @@ def test_database_storage_and_job_management(client, admin_headers, tmp_path):
         json={"name": "renamed-job", "enabled": True},
     )
     run_now = client.post(f"/api/v1/jobs/{job_id}/run-now", headers=admin_headers)
-    job_delete = client.delete(f"/api/v1/jobs/{job_id}", headers=admin_headers)
+    scheduled_backups = client.get("/api/v1/backups?source_type=SCHEDULED", headers=admin_headers)
+    job_delete = client.delete(f"/api/v1/jobs/{job_id}?delete_backups=true", headers=admin_headers)
+    backups_after_job_delete = client.get("/api/v1/backups", headers=admin_headers)
     db_delete = client.delete(f"/api/v1/databases/{database_id}", headers=admin_headers)
     storage_delete = client.delete(f"/api/v1/storages/{storage_id}", headers=admin_headers)
 
@@ -118,7 +120,9 @@ def test_database_storage_and_job_management(client, admin_headers, tmp_path):
     assert job_list.json()["total"] == 1
     assert job_update.json()["name"] == "renamed-job"
     assert run_now.status_code == 200
+    assert scheduled_backups.json()["total"] == 1
+    assert scheduled_backups.json()["items"][0]["source_type"] == "SCHEDULED"
     assert job_delete.status_code == 200
+    assert backups_after_job_delete.json()["total"] == 0
     assert db_delete.status_code == 200
     assert storage_delete.status_code == 200
-

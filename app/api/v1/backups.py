@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import require_permission
 from app.core.config import get_settings
@@ -23,6 +23,7 @@ from app.schemas.common import Message, Page
 from app.services.audit_service import create_audit_log
 from app.services.backup_service import (
     create_backup_task,
+    delete_backup_record,
     run_backup_task,
     upload_backup_file,
     verify_backup,
@@ -109,14 +110,27 @@ def list_backups(
     page_size: int = 20,
     database_id: int | None = None,
     status: str | None = None,
+    source_type: str | None = None,
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("backup:read")),
 ):
-    query = db.query(Backup).filter(Backup.deleted_at.is_(None))
+    query = db.query(Backup).options(joinedload(Backup.backup_task)).filter(Backup.deleted_at.is_(None))
     if database_id:
         query = query.filter(Backup.database_id == database_id)
     if status:
         query = query.filter(Backup.status == status)
+    if source_type:
+        source_type = source_type.upper()
+        if source_type == "SCHEDULED":
+            query = query.join(BackupTask, Backup.backup_task_id == BackupTask.id).filter(
+                BackupTask.trigger_type == "JOB"
+            )
+        elif source_type == "MANUAL":
+            query = query.outerjoin(BackupTask, Backup.backup_task_id == BackupTask.id).filter(
+                (BackupTask.id.is_(None)) | (BackupTask.trigger_type != "JOB")
+            )
+        else:
+            raise AppError("VALIDATION_ERROR", "Unsupported source_type", status_code=400)
     total = query.count()
     items = query.order_by(Backup.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return {"items": items, "page": page, "page_size": page_size, "total": total}
@@ -167,12 +181,7 @@ def delete_backup(
     backup = db.get(Backup, backup_id)
     if not backup or backup.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Backup not found", status_code=404)
-    backup.status = "DELETING"
-    db.commit()
-    build_storage_driver(backup.storage).delete(backup.object_key)
-    backup.status = "DELETED"
-    backup.deleted_at = datetime.now(UTC)
-    db.commit()
+    delete_backup_record(db, backup)
     create_audit_log(
         db,
         user=user,

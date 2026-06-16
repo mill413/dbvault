@@ -7,13 +7,13 @@ from app.api.deps import require_permission
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.errors import AppError
-from app.models import Job, User
+from app.models import Backup, BackupTask, Job, User
 from app.scheduler.service import reload_job, remove_job
 from app.schemas.backups import BackupRunRequest, TaskCreatedResponse
 from app.schemas.common import Message, Page
 from app.schemas.jobs import JobCreate, JobRead, JobUpdate
 from app.services.audit_service import create_audit_log
-from app.services.backup_service import create_backup_task, run_backup_task
+from app.services.backup_service import create_backup_task, delete_backup_record, run_backup_task
 
 router = APIRouter()
 
@@ -91,6 +91,7 @@ def update_job(
 def delete_job(
     job_id: int,
     request: Request,
+    delete_backups: bool = False,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("job:write")),
 ):
@@ -98,9 +99,28 @@ def delete_job(
     if not job or job.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
     job.deleted_at = datetime.now(UTC)
+    deleted_backup_ids: list[int] = []
+    if delete_backups:
+        backups = (
+            db.query(Backup)
+            .join(BackupTask, Backup.backup_task_id == BackupTask.id)
+            .filter(BackupTask.job_id == job.id, Backup.deleted_at.is_(None))
+            .all()
+        )
+        for backup in backups:
+            delete_backup_record(db, backup)
+            deleted_backup_ids.append(backup.id)
     db.commit()
     remove_job(job.id)
-    create_audit_log(db, user=user, action="job.delete", resource_type="job", resource_id=job.id, request=request)
+    create_audit_log(
+        db,
+        user=user,
+        action="job.delete",
+        resource_type="job",
+        resource_id=job.id,
+        request=request,
+        metadata={"delete_backups": delete_backups, "deleted_backup_ids": deleted_backup_ids},
+    )
     return {"message": "deleted"}
 
 

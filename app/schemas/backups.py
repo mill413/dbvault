@@ -29,6 +29,7 @@ class BackupRead(ORMModel):
     database_id: int
     storage_id: int
     backup_task_id: int | None = None
+    source_type: str
     backup_type: str
     status: str
     object_key: str

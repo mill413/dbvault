@@ -103,6 +103,13 @@ class Backup(Base, TimestampMixin, SoftDeleteMixin):
 
     database: Mapped[DatabaseInstance] = relationship()
     storage: Mapped[Storage] = relationship()
+    backup_task: Mapped["BackupTask | None"] = relationship()
+
+    @property
+    def source_type(self) -> str:
+        if self.backup_task and self.backup_task.trigger_type == "JOB":
+            return "SCHEDULED"
+        return "MANUAL"
 
 
 class BackupTask(Base, TimestampMixin):
@@ -230,4 +237,3 @@ class Alert(Base):
     dedupe_key: Mapped[str | None] = mapped_column(String(255), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
