@@ -51,6 +51,8 @@ def backup_trends(
         .order_by(BackupTask.created_at.cast(Date).asc())
         .all()
     )
+    if not rows:
+        return []
 
     grouped: dict[str, dict] = defaultdict(lambda: {"success_count": 0, "failed_count": 0})
     for d, status, count in rows:
@@ -80,8 +82,8 @@ def storage_usage(
 ):
     rows = (
         db.query(Storage.name, func.count(Backup.id), func.coalesce(func.sum(Backup.size_bytes), 0))
-        .outerjoin(Backup, Backup.storage_id == Storage.id)
-        .filter(Storage.deleted_at.is_(None))
+        .join(Backup, Backup.storage_id == Storage.id)
+        .filter(Storage.deleted_at.is_(None), Backup.deleted_at.is_(None))
         .group_by(Storage.id, Storage.name)
         .all()
     )
