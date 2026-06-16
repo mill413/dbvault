@@ -69,6 +69,8 @@ def test_postgresql_driver_uses_pgpassword_and_restore_file(monkeypatch):
 
     assert result.ok is True
     assert calls[0]["args"][0] == "psql"
-    assert "--file" in calls[0]["args"]
+    assert "DROP SCHEMA IF EXISTS public CASCADE;" in calls[0]["args"]
+    assert calls[1]["args"][0] == "psql"
+    assert "--file" in calls[1]["args"]
     assert calls[0]["env"]["PGPASSWORD"] == "secret"
-
+    assert calls[1]["env"]["PGPASSWORD"] == "secret"
