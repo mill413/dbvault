@@ -59,7 +59,7 @@ DBVault provides a unified management interface for scheduling, executing, and m
 
 ### Security & Access Control
 
-- **Role-Based Access Control (RBAC)** — Admin, Operator, and Viewer roles with granular permission enforcement
+- **Role-Based Access Control (RBAC)** — Admin and User roles with granular permission enforcement
 - **JWT Authentication** — Access/refresh token flow with configurable expiration
 - **Credential Encryption** — Database credentials encrypted at rest using Fernet symmetric encryption
 - **Full Audit Logging** — Every operation logged with user, action, resource, and timestamp
