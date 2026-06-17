@@ -8,8 +8,7 @@
             <el-input v-model="searchUsername" :placeholder="$t('user.searchUsername')" clearable style="width: 180px" />
             <el-select v-model="filterRole" :placeholder="$t('user.roleFilter')" clearable style="width: 130px">
               <el-option label="Admin" value="Admin" />
-              <el-option label="Operator" value="Operator" />
-              <el-option label="Viewer" value="Viewer" />
+              <el-option label="User" value="User" />
             </el-select>
             <el-select v-model="filterStatus" :placeholder="$t('user.statusFilter')" clearable style="width: 130px">
               <el-option label="ACTIVE" value="ACTIVE" />
@@ -86,8 +85,7 @@
         <el-form-item :label="$t('user.role')" prop="role">
           <el-select v-model="form.role" style="width: 100%">
             <el-option label="Admin" value="Admin" />
-            <el-option label="Operator" value="Operator" />
-            <el-option label="Viewer" value="Viewer" />
+            <el-option label="User" value="User" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="isEdit" :label="$t('common.status')" prop="status">
@@ -152,7 +150,7 @@ const form = reactive({
   password: '',
   display_name: '',
   email: '',
-  role: 'Viewer',
+  role: 'User',
   status: 'ACTIVE',
 })
 
@@ -171,7 +169,7 @@ const resetRules = {
 }
 
 const getRoleType = (role) => {
-  const map = { Admin: 'danger', Operator: 'warning', Viewer: 'info' }
+  const map = { Admin: 'danger', User: 'primary' }
   return map[role] || 'info'
 }
 
@@ -210,7 +208,7 @@ const fetchData = async () => {
 
 const showCreateDialog = () => {
   isEdit.value = false
-  Object.assign(form, { id: null, username: '', password: '', display_name: '', email: '', role: 'Viewer', status: 'ACTIVE' })
+  Object.assign(form, { id: null, username: '', password: '', display_name: '', email: '', role: 'User', status: 'ACTIVE' })
   dialogVisible.value = true
 }
 

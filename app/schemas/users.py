@@ -1,8 +1,11 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.schemas.common import ORMModel, validate_password
+
+UserRole = Literal["Admin", "User"]
 
 
 class UserCreate(BaseModel):
@@ -13,15 +16,16 @@ class UserCreate(BaseModel):
     @classmethod
     def check_password(cls, v: str) -> str:
         return validate_password(v)
+
     display_name: str | None = None
     email: EmailStr | None = None
-    role: str = "Viewer"
+    role: UserRole = "User"
 
 
 class UserUpdate(BaseModel):
     display_name: str | None = None
     email: EmailStr | None = None
-    role: str | None = None
+    role: UserRole | None = None
     status: str | None = None
 
 
@@ -43,4 +47,3 @@ class ResetPasswordRequest(BaseModel):
     @classmethod
     def check_password(cls, v: str) -> str:
         return validate_password(v)
-

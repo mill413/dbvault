@@ -46,13 +46,13 @@ def test_auth_refresh_change_password_and_user_management(client, admin_headers)
     created = client.post(
         "/api/v1/users",
         headers=admin_headers,
-        json={"username": "operator", "password": "operator123456", "role": "Operator"},
+        json={"username": "operator", "password": "operator123456", "role": "User"},
     )
     user_id = created.json()["id"]
     updated = client.put(
         f"/api/v1/users/{user_id}",
         headers=admin_headers,
-        json={"display_name": "Ops", "role": "Viewer"},
+        json={"display_name": "Ops", "role": "User"},
     )
     reset = client.post(
         f"/api/v1/users/{user_id}/reset-password",
@@ -65,7 +65,7 @@ def test_auth_refresh_change_password_and_user_management(client, admin_headers)
     assert change.status_code == 200
     assert created.status_code == 200
     assert updated.json()["display_name"] == "Ops"
-    assert updated.json()["role"] == "Viewer"
+    assert updated.json()["role"] == "User"
     assert reset.status_code == 200
     assert deleted.status_code == 200
 

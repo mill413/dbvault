@@ -64,7 +64,7 @@ ROLE_PERMISSIONS = {
         "storage:write",
         "audit:read",
     },
-    "Operator": {
+    "User": {
         "database:read",
         "database:write",
         "backup:read",
@@ -74,16 +74,10 @@ ROLE_PERMISSIONS = {
         "job:read",
         "job:write",
         "storage:read",
-    },
-    "Viewer": {
-        "database:read",
-        "backup:read",
-        "job:read",
-        "storage:read",
+        "storage:write",
     },
 }
 
 
 def has_permission(role: str, permission: str) -> bool:
     return permission in ROLE_PERMISSIONS.get(role, set())
-
