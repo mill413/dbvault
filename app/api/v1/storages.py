@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_permission
 from app.core.database import get_db
 from app.core.errors import AppError
+from app.core.ownership import ensure_owner, is_admin, owner_filter
 from app.models import Storage, User
 from app.schemas.common import Message, Page
 from app.schemas.storages import StorageCapacityResponse, StorageCreate, StorageRead, StorageTestResponse, StorageUpdate
@@ -20,9 +21,10 @@ def list_storages(
     page: int = 1,
     page_size: int = 20,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("storage:read")),
+    user: User = Depends(require_permission("storage:read")),
 ):
-    query = db.query(Storage).filter(Storage.deleted_at.is_(None)).order_by(Storage.id.asc())
+    query = db.query(Storage).filter(Storage.deleted_at.is_(None))
+    query = owner_filter(query, Storage, user).order_by(Storage.id.asc())
     total = query.count()
     return {
         "items": query.offset((page - 1) * page_size).limit(page_size).all(),
@@ -35,10 +37,11 @@ def list_storages(
 @router.get("/capacity/all", response_model=list[StorageCapacityResponse])
 def get_all_storage_capacity(
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("storage:read")),
+    user: User = Depends(require_permission("storage:read")),
 ):
     try:
-        storages = db.query(Storage).filter(Storage.deleted_at.is_(None), Storage.status == "ACTIVE").all()
+        query = db.query(Storage).filter(Storage.deleted_at.is_(None), Storage.status == "ACTIVE")
+        storages = owner_filter(query, Storage, user).all()
     except Exception:
         db.rollback()
         return []
@@ -83,10 +86,15 @@ def create_storage_endpoint(
 
 
 @router.get("/{storage_id}", response_model=StorageRead)
-def get_storage(storage_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission("storage:read"))):
+def get_storage(
+    storage_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("storage:read")),
+):
     item = db.get(Storage, storage_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    ensure_owner(item, user, "Storage not found")
     return item
 
 
@@ -101,14 +109,19 @@ def update_storage(
     item = db.get(Storage, storage_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    ensure_owner(item, user, "Storage not found")
     data = payload.model_dump(exclude_unset=True)
     config = data.pop("config", None)
-    if data.get("is_default"):
-        db.query(Storage).update({Storage.is_default: False})
     for key, value in data.items():
         setattr(item, key, value)
     if config is not None:
         item.config_encrypted = encrypt_config(config)
+    if data.get("is_default"):
+        query = db.query(Storage)
+        if not is_admin(user):
+            query = query.filter(Storage.created_by == user.id)
+        query.update({Storage.is_default: False})
+        item.is_default = True
     db.commit()
     db.refresh(item)
     create_audit_log(
@@ -132,6 +145,7 @@ def delete_storage(
     item = db.get(Storage, storage_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    ensure_owner(item, user, "Storage not found")
     item.deleted_at = datetime.now(UTC)
     db.commit()
     create_audit_log(
@@ -146,10 +160,15 @@ def delete_storage(
 
 
 @router.post("/{storage_id}/test", response_model=StorageTestResponse)
-def test_storage(storage_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission("storage:read"))):
+def test_storage(
+    storage_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("storage:read")),
+):
     item = db.get(Storage, storage_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    ensure_owner(item, user, "Storage not found")
     return build_storage_driver(item).test()
 
 
@@ -157,11 +176,12 @@ def test_storage(storage_id: int, db: Session = Depends(get_db), _: User = Depen
 def get_storage_capacity(
     storage_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("storage:read")),
+    user: User = Depends(require_permission("storage:read")),
 ):
     item = db.get(Storage, storage_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    ensure_owner(item, user, "Storage not found")
     try:
         used = get_storage_usage(db, item)
     except Exception:

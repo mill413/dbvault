@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.core.ownership import ensure_owner
 from app.drivers.registry import registry
 from app.models import Backup, DatabaseInstance, RestoreTask, Storage, User
 from app.services.alert_service import create_alert
@@ -17,15 +18,32 @@ from app.services.storage_service import build_storage_driver
 from app.utils.checksum import file_checksum
 
 
-def dry_run_restore(db: Session, backup_id: int, target_database_id: int | None) -> dict:
+def dry_run_restore(db: Session, backup_id: int, target_database_id: int | None, user: User) -> dict:
     backup = db.get(Backup, backup_id)
     target = db.get(DatabaseInstance, target_database_id) if target_database_id else None
     storage = db.get(Storage, backup.storage_id) if backup else None
+    backup_owner_ok = False
+    target_owner_ok = False
+    if backup is not None and backup.deleted_at is None:
+        try:
+            ensure_owner(backup, user, "Backup not found")
+            backup_owner_ok = True
+        except AppError:
+            backup_owner_ok = False
+    if target_database_id:
+        if target is not None and target.deleted_at is None:
+            try:
+                ensure_owner(target, user, "Target database not found")
+                target_owner_ok = True
+            except AppError:
+                target_owner_ok = False
+    else:
+        target_owner_ok = True
     checks = {
-        "backup_exists": backup is not None and backup.deleted_at is None,
-        "backup_available": bool(backup and backup.status == "AVAILABLE"),
-        "storage_exists": storage is not None,
-        "target_exists": target is not None if target_database_id else True,
+        "backup_exists": backup is not None and backup.deleted_at is None and backup_owner_ok,
+        "backup_available": bool(backup and backup_owner_ok and backup.status == "AVAILABLE"),
+        "storage_exists": storage is not None and backup_owner_ok,
+        "target_exists": target_owner_ok,
     }
     return {
         "ok": all(checks.values()),
@@ -38,8 +56,14 @@ def create_restore_task(db: Session, payload, user: User) -> RestoreTask:
     backup = db.get(Backup, payload.backup_id)
     if not backup or backup.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Backup not found", status_code=404)
+    ensure_owner(backup, user, "Backup not found")
     if backup.status != "AVAILABLE":
         raise AppError("VALIDATION_ERROR", "Backup is not available", status_code=400)
+    target_id = payload.target_database_id or backup.database_id
+    target = db.get(DatabaseInstance, target_id) if target_id else None
+    if not target or target.deleted_at is not None:
+        raise AppError("RESOURCE_NOT_FOUND", "Target database not found", status_code=404)
+    ensure_owner(target, user, "Target database not found")
     if payload.restore_mode == "ORIGINAL_INSTANCE":
         expected = f"restore {backup.database.name}" if backup.database else f"restore {backup.database_id}"
         if payload.confirm_text != expected:

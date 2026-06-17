@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.encryption import decrypt_secret, encrypt_secret
 from app.core.errors import AppError
+from app.core.ownership import is_admin
 from app.drivers.registry import registry
 from app.models import Storage, User
 
@@ -19,7 +20,10 @@ def decrypt_config(config_encrypted: str) -> dict:
 
 def create_storage(db: Session, payload, user: User) -> Storage:
     if payload.is_default:
-        db.query(Storage).update({Storage.is_default: False})
+        query = db.query(Storage)
+        if not is_admin(user):
+            query = query.filter(Storage.created_by == user.id)
+        query.update({Storage.is_default: False})
     storage = Storage(
         name=payload.name,
         storage_type=payload.storage_type.lower(),
@@ -44,19 +48,13 @@ def get_storage_usage(db: Session, storage: Storage) -> int:
     return int(result)
 
 
-def get_default_storage(db: Session) -> Storage:
-    storage = (
-        db.query(Storage)
-        .filter(Storage.deleted_at.is_(None), Storage.status == "ACTIVE", Storage.is_default.is_(True))
-        .first()
-    )
+def get_default_storage(db: Session, user: User | None = None) -> Storage:
+    query = db.query(Storage).filter(Storage.deleted_at.is_(None), Storage.status == "ACTIVE")
+    if user is not None and not is_admin(user):
+        query = query.filter(Storage.created_by == user.id)
+    storage = query.filter(Storage.is_default.is_(True)).first()
     if not storage:
-        storage = (
-            db.query(Storage)
-            .filter(Storage.deleted_at.is_(None), Storage.status == "ACTIVE")
-            .order_by(Storage.id.asc())
-            .first()
-        )
+        storage = query.order_by(Storage.id.asc()).first()
     if not storage:
         raise AppError("RESOURCE_NOT_FOUND", "No active storage configured", status_code=404)
     return storage
@@ -68,4 +66,3 @@ def build_storage_driver(storage: Storage):
     except KeyError as exc:
         raise AppError("STORAGE_DRIVER_NOT_FOUND", str(exc), status_code=400) from exc
     return driver_cls(decrypt_config(storage.config_encrypted))
-

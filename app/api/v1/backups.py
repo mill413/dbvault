@@ -8,6 +8,7 @@ from app.api.deps import require_permission
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.errors import AppError
+from app.core.ownership import ensure_owner, owner_filter
 from app.models import Backup, BackupTask, TaskEvent, User
 from app.schemas.audit import TaskEventRead
 from app.schemas.backups import (
@@ -99,9 +100,9 @@ def upload_backup(
 def run_lifecycle_cleanup_endpoint(
     dry_run: bool = False,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:delete")),
+    user: User = Depends(require_permission("backup:delete")),
 ):
-    return run_lifecycle_cleanup(db, dry_run=dry_run)
+    return run_lifecycle_cleanup(db, dry_run=dry_run, user=user)
 
 
 @router.get("/backups", response_model=Page[BackupRead])
@@ -112,9 +113,10 @@ def list_backups(
     status: str | None = None,
     source_type: str | None = None,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
     query = db.query(Backup).options(joinedload(Backup.backup_task)).filter(Backup.deleted_at.is_(None))
+    query = owner_filter(query, Backup, user)
     if database_id:
         query = query.filter(Backup.database_id == database_id)
     if status:
@@ -137,10 +139,11 @@ def list_backups(
 
 
 @router.get("/backups/{backup_id}", response_model=BackupRead)
-def get_backup(backup_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission("backup:read"))):
+def get_backup(backup_id: int, db: Session = Depends(get_db), user: User = Depends(require_permission("backup:read"))):
     item = db.get(Backup, backup_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Backup not found", status_code=404)
+    ensure_owner(item, user, "Backup not found")
     return item
 
 
@@ -148,11 +151,12 @@ def get_backup(backup_id: int, db: Session = Depends(get_db), _: User = Depends(
 def download_backup(
     backup_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
     backup = db.get(Backup, backup_id)
     if not backup or backup.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Backup not found", status_code=404)
+    ensure_owner(backup, user, "Backup not found")
     storage = backup.storage
     local_path = get_settings().backup_tmp_dir / f"download-{backup.id}-{backup.filename}"
     build_storage_driver(storage).download(backup.object_key, local_path)
@@ -163,11 +167,12 @@ def download_backup(
 def verify_backup_endpoint(
     backup_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:run")),
+    user: User = Depends(require_permission("backup:run")),
 ):
     backup = db.get(Backup, backup_id)
     if not backup or backup.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Backup not found", status_code=404)
+    ensure_owner(backup, user, "Backup not found")
     return verify_backup(db, backup)
 
 
@@ -181,6 +186,7 @@ def delete_backup(
     backup = db.get(Backup, backup_id)
     if not backup or backup.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Backup not found", status_code=404)
+    ensure_owner(backup, user, "Backup not found")
     delete_backup_record(db, backup)
     create_audit_log(
         db,
@@ -198,9 +204,10 @@ def list_backup_tasks(
     page: int = 1,
     page_size: int = 20,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
-    query = db.query(BackupTask).order_by(BackupTask.created_at.desc())
+    query = db.query(BackupTask)
+    query = owner_filter(query, BackupTask, user).order_by(BackupTask.created_at.desc())
     total = query.count()
     return {
         "items": query.offset((page - 1) * page_size).limit(page_size).all(),
@@ -211,10 +218,15 @@ def list_backup_tasks(
 
 
 @router.get("/backup-tasks/{task_id}", response_model=BackupTaskRead)
-def get_backup_task(task_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission("backup:read"))):
+def get_backup_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("backup:read")),
+):
     task = db.get(BackupTask, task_id)
     if not task:
         raise AppError("RESOURCE_NOT_FOUND", "Backup task not found", status_code=404)
+    ensure_owner(task, user, "Backup task not found")
     return task
 
 
@@ -222,8 +234,12 @@ def get_backup_task(task_id: int, db: Session = Depends(get_db), _: User = Depen
 def get_backup_task_events(
     task_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
+    task = db.get(BackupTask, task_id)
+    if not task:
+        raise AppError("RESOURCE_NOT_FOUND", "Backup task not found", status_code=404)
+    ensure_owner(task, user, "Backup task not found")
     return (
         db.query(TaskEvent)
         .filter(TaskEvent.task_type == "backup", TaskEvent.task_id == task_id)
@@ -236,11 +252,12 @@ def get_backup_task_events(
 def cancel_backup_task(
     task_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:run")),
+    user: User = Depends(require_permission("backup:run")),
 ):
     task = db.get(BackupTask, task_id)
     if not task:
         raise AppError("RESOURCE_NOT_FOUND", "Backup task not found", status_code=404)
+    ensure_owner(task, user, "Backup task not found")
     if task.status not in {"PENDING", "RUNNING"}:
         raise AppError("VALIDATION_ERROR", "Task cannot be cancelled", status_code=400)
     task.status = "CANCELLED"

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.core.ownership import ensure_owner
 from app.drivers.registry import registry
 from app.models import Backup, BackupTask, DatabaseInstance, Storage, User
 from app.services.alert_service import create_alert
@@ -33,18 +34,24 @@ def _check_storage_capacity(db: Session, storage: Storage, additional_bytes: int
             resource_type="storage",
             resource_id=storage.id,
             title="Storage capacity limit exceeded",
-            message=f"Storage '{storage.name}' usage ({usage_pct}%) plus new backup ({additional_bytes} bytes) exceeds capacity limit ({storage.capacity_limit_bytes} bytes)",
+            message=(
+                f"Storage '{storage.name}' usage ({usage_pct}%) plus new backup "
+                f"({additional_bytes} bytes) exceeds capacity limit "
+                f"({storage.capacity_limit_bytes} bytes)"
+            ),
             dedupe_key=f"capacity:{storage.id}",
         )
 
 
 def create_backup_task(db: Session, payload, user: User, trigger_type: str = "MANUAL") -> BackupTask:
-    storage = db.get(Storage, payload.storage_id) if payload.storage_id else get_default_storage(db)
+    storage = db.get(Storage, payload.storage_id) if payload.storage_id else get_default_storage(db, user=user)
     if not storage or storage.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    ensure_owner(storage, user, "Storage not found")
     instance = db.get(DatabaseInstance, payload.database_id)
     if not instance or instance.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(instance, user, "Database instance not found")
     task = BackupTask(
         database_id=instance.id,
         storage_id=storage.id,
@@ -261,9 +268,11 @@ def upload_backup_file(
     instance = db.get(DatabaseInstance, database_id)
     if not instance or instance.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
-    storage = db.get(Storage, storage_id) if storage_id else get_default_storage(db)
+    storage = db.get(Storage, storage_id) if storage_id else get_default_storage(db, user=user)
     if not storage or storage.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    ensure_owner(storage, user, "Storage not found")
+    ensure_owner(instance, user, "Database instance not found")
     settings.backup_tmp_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(delete=False, dir=settings.backup_tmp_dir) as tmp:
         shutil.copyfileobj(file.file, tmp)

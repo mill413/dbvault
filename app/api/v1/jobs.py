@@ -7,7 +7,8 @@ from app.api.deps import require_permission
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.errors import AppError
-from app.models import Backup, BackupTask, Job, User
+from app.core.ownership import ensure_owner, owner_filter
+from app.models import Backup, BackupTask, DatabaseInstance, Job, Storage, User
 from app.scheduler.service import reload_job, remove_job
 from app.schemas.backups import BackupRunRequest, TaskCreatedResponse
 from app.schemas.common import Message, Page
@@ -31,9 +32,10 @@ def list_jobs(
     page: int = 1,
     page_size: int = 20,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("job:read")),
+    user: User = Depends(require_permission("job:read")),
 ):
-    query = db.query(Job).filter(Job.deleted_at.is_(None)).order_by(Job.id.desc())
+    query = db.query(Job).filter(Job.deleted_at.is_(None))
+    query = owner_filter(query, Job, user).order_by(Job.id.desc())
     total = query.count()
     return {
         "items": query.offset((page - 1) * page_size).limit(page_size).all(),
@@ -50,6 +52,14 @@ def create_job(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("job:write")),
 ):
+    database = db.get(DatabaseInstance, payload.database_id)
+    if not database or database.deleted_at is not None:
+        raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(database, user, "Database instance not found")
+    storage = db.get(Storage, payload.storage_id)
+    if not storage or storage.deleted_at is not None:
+        raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    ensure_owner(storage, user, "Storage not found")
     job = Job(**payload.model_dump(), created_by=user.id)
     db.add(job)
     db.commit()
@@ -60,10 +70,11 @@ def create_job(
 
 
 @router.get("/{job_id}", response_model=JobRead)
-def get_job(job_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission("job:read"))):
+def get_job(job_id: int, db: Session = Depends(get_db), user: User = Depends(require_permission("job:read"))):
     job = db.get(Job, job_id)
     if not job or job.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
+    ensure_owner(job, user, "Job not found")
     return job
 
 
@@ -78,7 +89,19 @@ def update_job(
     job = db.get(Job, job_id)
     if not job or job.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    ensure_owner(job, user, "Job not found")
+    data = payload.model_dump(exclude_unset=True)
+    if "database_id" in data and data["database_id"] is not None:
+        database = db.get(DatabaseInstance, data["database_id"])
+        if not database or database.deleted_at is not None:
+            raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+        ensure_owner(database, user, "Database instance not found")
+    if "storage_id" in data and data["storage_id"] is not None:
+        storage = db.get(Storage, data["storage_id"])
+        if not storage or storage.deleted_at is not None:
+            raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+        ensure_owner(storage, user, "Storage not found")
+    for key, value in data.items():
         setattr(job, key, value)
     db.commit()
     db.refresh(job)
@@ -98,6 +121,7 @@ def delete_job(
     job = db.get(Job, job_id)
     if not job or job.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
+    ensure_owner(job, user, "Job not found")
     job.deleted_at = datetime.now(UTC)
     deleted_backup_ids: list[int] = []
     if delete_backups:
@@ -125,10 +149,11 @@ def delete_job(
 
 
 @router.post("/{job_id}/enable", response_model=JobRead)
-def enable_job(job_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission("job:write"))):
+def enable_job(job_id: int, db: Session = Depends(get_db), user: User = Depends(require_permission("job:write"))):
     job = db.get(Job, job_id)
     if not job or job.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
+    ensure_owner(job, user, "Job not found")
     job.enabled = True
     db.commit()
     db.refresh(job)
@@ -137,10 +162,11 @@ def enable_job(job_id: int, db: Session = Depends(get_db), _: User = Depends(req
 
 
 @router.post("/{job_id}/disable", response_model=JobRead)
-def disable_job(job_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission("job:write"))):
+def disable_job(job_id: int, db: Session = Depends(get_db), user: User = Depends(require_permission("job:write"))):
     job = db.get(Job, job_id)
     if not job or job.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
+    ensure_owner(job, user, "Job not found")
     job.enabled = False
     db.commit()
     db.refresh(job)
@@ -159,6 +185,7 @@ def run_job_now(
     job = db.get(Job, job_id)
     if not job or job.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
+    ensure_owner(job, user, "Job not found")
     payload = BackupRunRequest(
         database_id=job.database_id,
         storage_id=job.storage_id,

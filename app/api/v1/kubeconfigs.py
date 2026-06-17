@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 from datetime import datetime
@@ -8,6 +9,8 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import require_permission
 from app.core.errors import AppError
+from app.core.ownership import is_admin
+from app.models import User
 from app.schemas.kubeconfig import KubeconfigCreate, KubeconfigRead, KubeconfigTestResult
 
 router = APIRouter()
@@ -47,9 +50,34 @@ def _parse_kubeconfig(path: Path) -> dict:
         }
 
 
+def _metadata_path(path: Path) -> Path:
+    return path.with_suffix(path.suffix + ".meta.json")
+
+
+def _read_owner(path: Path) -> int | None:
+    metadata_path = _metadata_path(path)
+    if not metadata_path.exists():
+        return None
+    try:
+        return json.loads(metadata_path.read_text(encoding="utf-8")).get("created_by")
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _write_owner(path: Path, user: User) -> None:
+    _metadata_path(path).write_text(json.dumps({"created_by": user.id}), encoding="utf-8")
+
+
+def _ensure_kubeconfig_owner(path: Path, user: User) -> None:
+    if is_admin(user):
+        return
+    if _read_owner(path) != user.id:
+        raise AppError("RESOURCE_NOT_FOUND", f"Kubeconfig '{path.stem}' not found", status_code=404)
+
+
 @router.get("", response_model=list[KubeconfigRead])
 def list_kubeconfigs(
-    _: dict = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
     _ensure_kubeconfig_dir()
     files = sorted(KUBECONFIG_DIR.glob("*.yaml")) + sorted(KUBECONFIG_DIR.glob("*.yml"))
@@ -57,6 +85,8 @@ def list_kubeconfigs(
     seen = set()
     for f in files:
         if f.stem in seen:
+            continue
+        if not is_admin(user) and _read_owner(f) != user.id:
             continue
         seen.add(f.stem)
         results.append(KubeconfigRead(**_parse_kubeconfig(f)))
@@ -66,7 +96,7 @@ def list_kubeconfigs(
 @router.post("", response_model=KubeconfigRead)
 def create_kubeconfig(
     payload: KubeconfigCreate,
-    _: dict = Depends(require_permission("database:write")),
+    user: User = Depends(require_permission("database:write")),
 ):
     _ensure_kubeconfig_dir()
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in payload.name)
@@ -80,20 +110,23 @@ def create_kubeconfig(
     if target.exists():
         raise AppError("ALREADY_EXISTS", f"Kubeconfig '{safe_name}' already exists", status_code=409)
     target.write_text(payload.content, encoding="utf-8")
+    _write_owner(target, user)
     return KubeconfigRead(**_parse_kubeconfig(target))
 
 
 @router.delete("/{name}")
 def delete_kubeconfig(
     name: str,
-    _: dict = Depends(require_permission("database:write")),
+    user: User = Depends(require_permission("database:write")),
 ):
     _ensure_kubeconfig_dir()
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
     for ext in (".yaml", ".yml"):
         target = KUBECONFIG_DIR / f"{safe_name}{ext}"
         if target.exists():
+            _ensure_kubeconfig_owner(target, user)
             target.unlink()
+            _metadata_path(target).unlink(missing_ok=True)
             return {"message": "deleted"}
     raise AppError("RESOURCE_NOT_FOUND", f"Kubeconfig '{name}' not found", status_code=404)
 
@@ -102,7 +135,7 @@ def delete_kubeconfig(
 def test_kubeconfig(
     name: str,
     context: str | None = None,
-    _: dict = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
     _ensure_kubeconfig_dir()
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
@@ -114,6 +147,7 @@ def test_kubeconfig(
             break
     if not target:
         raise AppError("RESOURCE_NOT_FOUND", f"Kubeconfig '{name}' not found", status_code=404)
+    _ensure_kubeconfig_owner(target, user)
 
     args = ["kubectl", "--kubeconfig", str(target)]
     if context:

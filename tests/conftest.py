@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -10,6 +11,7 @@ os.environ["DBVAULT_DATABASE_URL"] = f"sqlite:///{TEST_ROOT / 'test.db'}"
 os.environ["DBVAULT_JWT_SECRET"] = "test-secret"
 os.environ["DBVAULT_BACKUP_TMP_DIR"] = str(TEST_ROOT / "tmp")
 os.environ["DBVAULT_LOCAL_STORAGE_ROOT"] = str(TEST_ROOT / "backups")
+os.environ["DBVAULT_KUBECONFIG_DIR"] = str(TEST_ROOT / "kubeconfigs")
 os.environ["DBVAULT_RUN_BACKGROUND_TASKS_INLINE"] = "true"
 os.environ["DBVAULT_SCHEDULER_ENABLED"] = "false"
 os.environ["DBVAULT_INITIAL_ADMIN_PASSWORD"] = "admin123456789"
@@ -22,6 +24,7 @@ from app.main import app  # noqa: E402
 @pytest.fixture(autouse=True)
 def reset_database():
     register_builtin_drivers()
+    shutil.rmtree(TEST_ROOT / "kubeconfigs", ignore_errors=True)
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield

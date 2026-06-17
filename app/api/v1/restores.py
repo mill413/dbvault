@@ -5,6 +5,7 @@ from app.api.deps import require_permission
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.errors import AppError
+from app.core.ownership import ensure_owner, owner_filter
 from app.models import RestoreTask, TaskEvent, User
 from app.schemas.audit import TaskEventRead
 from app.schemas.backups import TaskCreatedResponse
@@ -28,9 +29,9 @@ def _run_restore_task_with_new_session(task_id: int) -> None:
 def dry_run(
     payload: RestoreRunRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
-    return dry_run_restore(db, payload.backup_id, payload.target_database_id)
+    return dry_run_restore(db, payload.backup_id, payload.target_database_id, user)
 
 
 @router.post("/restore/run", response_model=TaskCreatedResponse)
@@ -62,9 +63,10 @@ def list_restore_tasks(
     page: int = 1,
     page_size: int = 20,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
-    query = db.query(RestoreTask).order_by(RestoreTask.created_at.desc())
+    query = db.query(RestoreTask)
+    query = owner_filter(query, RestoreTask, user).order_by(RestoreTask.created_at.desc())
     total = query.count()
     return {
         "items": query.offset((page - 1) * page_size).limit(page_size).all(),
@@ -78,11 +80,12 @@ def list_restore_tasks(
 def get_restore_task(
     task_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
     task = db.get(RestoreTask, task_id)
     if not task:
         raise AppError("RESOURCE_NOT_FOUND", "Restore task not found", status_code=404)
+    ensure_owner(task, user, "Restore task not found")
     return task
 
 
@@ -90,8 +93,12 @@ def get_restore_task(
 def get_restore_task_events(
     task_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
+    task = db.get(RestoreTask, task_id)
+    if not task:
+        raise AppError("RESOURCE_NOT_FOUND", "Restore task not found", status_code=404)
+    ensure_owner(task, user, "Restore task not found")
     return (
         db.query(TaskEvent)
         .filter(TaskEvent.task_type == "restore", TaskEvent.task_id == task_id)

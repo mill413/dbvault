@@ -1,4 +1,7 @@
+import json
+import os
 from datetime import UTC, datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
@@ -6,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_permission
 from app.core.database import get_db
 from app.core.errors import AppError
+from app.core.ownership import ensure_owner, is_admin, owner_filter
+from app.drivers.database.k8s import list_namespaces, list_pods
 from app.models import DatabaseInstance, User
 from app.schemas.common import Message, Page
 from app.schemas.databases import (
@@ -15,7 +20,6 @@ from app.schemas.databases import (
     DatabaseTestRequest,
     DatabaseUpdate,
 )
-from app.drivers.database.k8s import list_namespaces, list_pods
 from app.services.audit_service import create_audit_log
 from app.services.database_service import (
     create_database,
@@ -25,6 +29,24 @@ from app.services.database_service import (
 
 router = APIRouter()
 
+KUBECONFIG_DIR = Path(os.getenv("DBVAULT_KUBECONFIG_DIR", "/var/lib/dbvault/kubeconfigs"))
+
+
+def _ensure_kubeconfig_access(kubeconfig: str | None, user: User) -> None:
+    if not kubeconfig or is_admin(user):
+        return
+    path = Path(kubeconfig).resolve()
+    root = KUBECONFIG_DIR.resolve()
+    if not path.is_relative_to(root):
+        raise AppError("RESOURCE_NOT_FOUND", "Kubeconfig not found", status_code=404)
+    metadata_path = path.with_suffix(path.suffix + ".meta.json")
+    try:
+        owner_id = json.loads(metadata_path.read_text(encoding="utf-8")).get("created_by")
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        owner_id = None
+    if owner_id != user.id:
+        raise AppError("RESOURCE_NOT_FOUND", "Kubeconfig not found", status_code=404)
+
 
 @router.get("", response_model=Page[DatabaseRead])
 def list_databases(
@@ -33,9 +55,10 @@ def list_databases(
     db_type: str | None = None,
     environment: str | None = None,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
     query = db.query(DatabaseInstance).filter(DatabaseInstance.deleted_at.is_(None))
+    query = owner_filter(query, DatabaseInstance, user)
     if db_type:
         query = query.filter(DatabaseInstance.db_type == db_type.lower())
     if environment:
@@ -81,8 +104,9 @@ def test_temporary_database(
 def get_k8s_namespaces(
     kubeconfig: str | None = None,
     context: str | None = None,
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
+    _ensure_kubeconfig_access(kubeconfig, user)
     namespaces = list_namespaces(kubeconfig=kubeconfig, context=context)
     return {"namespaces": namespaces}
 
@@ -92,8 +116,9 @@ def get_k8s_pods(
     namespace: str = "default",
     kubeconfig: str | None = None,
     context: str | None = None,
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
+    _ensure_kubeconfig_access(kubeconfig, user)
     pods = list_pods(namespace=namespace, kubeconfig=kubeconfig, context=context)
     return {"pods": pods}
 
@@ -102,11 +127,12 @@ def get_k8s_pods(
 def get_database_endpoint(
     database_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
     item = db.get(DatabaseInstance, database_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(item, user, "Database instance not found")
     return item
 
 
@@ -121,6 +147,7 @@ def update_database_endpoint(
     item = db.get(DatabaseInstance, database_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(item, user, "Database instance not found")
     update_database(item, payload)
     db.commit()
     db.refresh(item)
@@ -145,6 +172,7 @@ def delete_database_endpoint(
     item = db.get(DatabaseInstance, database_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(item, user, "Database instance not found")
     item.deleted_at = datetime.now(UTC)
     db.commit()
     create_audit_log(
@@ -162,9 +190,10 @@ def delete_database_endpoint(
 def test_saved_database(
     database_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
     item = db.get(DatabaseInstance, database_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(item, user, "Database instance not found")
     return test_database_connection(item)
