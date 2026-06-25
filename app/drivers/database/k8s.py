@@ -95,8 +95,24 @@ def run_kubectl_command(
         for key in ["MYSQL_PWD", "PGPASSWORD"]:
             if key in env:
                 k8s_env_vars[key] = env[key]
-    args = build_kubectl_exec_args(config, command, env_vars=k8s_env_vars if k8s_env_vars else None)
     start = monotonic()
+    pod_name = resolve_pod_name(config)
+    if not pod_name:
+        return CommandResult(
+            ok=False,
+            returncode=1,
+            stdout_tail="",
+            stderr_tail="Kubernetes pod not found. Provide pod_name or a label_selector that matches a pod.",
+            duration_seconds=elapsed_since(start),
+        )
+    exec_config = K8sConfig(
+        namespace=config.namespace,
+        pod_name=pod_name,
+        container=config.container,
+        kubeconfig=config.kubeconfig,
+        context=config.context,
+    )
+    args = build_kubectl_exec_args(exec_config, command, env_vars=k8s_env_vars if k8s_env_vars else None)
     try:
         completed = subprocess.run(
             args,
