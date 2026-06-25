@@ -198,8 +198,17 @@ const restoreForm = reactive({
   dry_run: false,
 })
 
+function validateTargetDatabase(_rule, value, callback) {
+  if (restoreForm.restore_mode === 'NEW_INSTANCE' && !value) {
+    callback(new Error(t('restore.selectTargetDb')))
+    return
+  }
+  callback()
+}
+
 const restoreRules = {
   backup_id: [{ required: true, message: '请选择备份', trigger: 'change' }],
+  target_database_id: [{ validator: validateTargetDatabase, trigger: 'change' }],
   restore_mode: [{ required: true, message: '请选择恢复模式', trigger: 'change' }],
 }
 
@@ -283,11 +292,17 @@ const onRestoreModeChange = () => {
   } else {
     restoreForm.target_database_id = null
   }
+  restoreFormRef.value?.clearValidate('target_database_id')
 }
 
 const validateRestoreMode = () => {
   const backup = getSelectedBackup()
-  if (!backup || !restoreForm.target_database_id) return true
+  if (!backup) return true
+  if (restoreForm.restore_mode === 'NEW_INSTANCE' && !restoreForm.target_database_id) {
+    ElMessage.warning(t('restore.selectTargetDb'))
+    return false
+  }
+  if (!restoreForm.target_database_id) return true
 
   const sourceDbId = backup.database_id
   const targetDbId = restoreForm.target_database_id
@@ -316,6 +331,7 @@ const handleDryRun = async () => {
     const response = await dryRunRestore({
       backup_id: restoreForm.backup_id,
       target_database_id: restoreForm.target_database_id,
+      restore_mode: restoreForm.restore_mode,
     })
     dryRunResult.value = response.data
     if (response.data.ok) {

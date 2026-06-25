@@ -31,7 +31,7 @@ def dry_run(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:read")),
 ):
-    return dry_run_restore(db, payload.backup_id, payload.target_database_id, user)
+    return dry_run_restore(db, payload.backup_id, payload.target_database_id, user, payload.restore_mode)
 
 
 @router.post("/restore/run", response_model=TaskCreatedResponse)

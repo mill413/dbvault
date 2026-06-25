@@ -96,6 +96,44 @@ def test_original_instance_restore_requires_confirmation(client, admin_headers, 
     assert task.json()["status"] == "SUCCESS"
 
 
+def test_new_instance_restore_requires_explicit_target(client, admin_headers, tmp_path):
+    registry.register_database("mysql", SuccessfulRestoreDriver)
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers, name="source")
+    backup_id = _upload_backup(client, admin_headers, database_id, storage_id)
+
+    response = client.post(
+        "/api/v1/restore/run",
+        headers=admin_headers,
+        json={"backup_id": backup_id, "restore_mode": "NEW_INSTANCE"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_original_instance_restore_rejects_different_target(client, admin_headers, tmp_path):
+    registry.register_database("mysql", SuccessfulRestoreDriver)
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    source_id = create_database_instance(client, admin_headers, name="source")
+    target_id = create_database_instance(client, admin_headers, name="target")
+    backup_id = _upload_backup(client, admin_headers, source_id, storage_id)
+
+    response = client.post(
+        "/api/v1/restore/run",
+        headers=admin_headers,
+        json={
+            "backup_id": backup_id,
+            "target_database_id": target_id,
+            "restore_mode": "ORIGINAL_INSTANCE",
+            "confirm_text": "restore source",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 def test_restore_checksum_mismatch_blocks_restore_and_alerts(client, admin_headers, tmp_path):
     registry.register_database("mysql", RestoreShouldNotRunDriver)
     storage_root = tmp_path / "backups"
@@ -121,4 +159,3 @@ def test_restore_checksum_mismatch_blocks_restore_and_alerts(client, admin_heade
     assert task.json()["error_code"] == "CHECKSUM_MISMATCH"
     assert alerts.json()["total"] == 1
     assert alerts.json()["items"][0]["alert_type"] == "RESTORE_FAILED"
-

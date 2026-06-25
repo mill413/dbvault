@@ -18,7 +18,13 @@ from app.services.storage_service import build_storage_driver
 from app.utils.checksum import file_checksum
 
 
-def dry_run_restore(db: Session, backup_id: int, target_database_id: int | None, user: User) -> dict:
+def dry_run_restore(
+    db: Session,
+    backup_id: int,
+    target_database_id: int | None,
+    user: User,
+    restore_mode: str = "NEW_INSTANCE",
+) -> dict:
     backup = db.get(Backup, backup_id)
     target = db.get(DatabaseInstance, target_database_id) if target_database_id else None
     storage = db.get(Storage, backup.storage_id) if backup else None
@@ -30,13 +36,17 @@ def dry_run_restore(db: Session, backup_id: int, target_database_id: int | None,
             backup_owner_ok = True
         except AppError:
             backup_owner_ok = False
-    if target_database_id:
+    if restore_mode == "NEW_INSTANCE" and target_database_id is None:
+        target_owner_ok = False
+    elif target_database_id:
         if target is not None and target.deleted_at is None:
             try:
                 ensure_owner(target, user, "Target database not found")
                 target_owner_ok = True
             except AppError:
                 target_owner_ok = False
+        if backup is not None and target_database_id == backup.database_id and restore_mode == "NEW_INSTANCE":
+            target_owner_ok = False
     else:
         target_owner_ok = True
     checks = {
@@ -59,6 +69,17 @@ def create_restore_task(db: Session, payload, user: User) -> RestoreTask:
     ensure_owner(backup, user, "Backup not found")
     if backup.status != "AVAILABLE":
         raise AppError("VALIDATION_ERROR", "Backup is not available", status_code=400)
+    if payload.restore_mode == "NEW_INSTANCE":
+        if payload.target_database_id is None:
+            raise AppError("VALIDATION_ERROR", "Target database is required for new instance restore", status_code=400)
+        if payload.target_database_id == backup.database_id:
+            raise AppError(
+                "VALIDATION_ERROR",
+                "Target database must be different from source database",
+                status_code=400,
+            )
+    if payload.restore_mode == "ORIGINAL_INSTANCE" and payload.target_database_id not in {None, backup.database_id}:
+        raise AppError("VALIDATION_ERROR", "Original instance restore must target the source database", status_code=400)
     target_id = payload.target_database_id or backup.database_id
     target = db.get(DatabaseInstance, target_id) if target_id else None
     if not target or target.deleted_at is not None:
