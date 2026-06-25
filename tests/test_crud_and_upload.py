@@ -1,5 +1,8 @@
 from pathlib import Path
 
+from app.core.database import SessionLocal
+from app.models import Storage
+from app.services.storage_service import decrypt_config
 from tests.conftest import create_database_instance, create_local_storage
 
 
@@ -19,6 +22,25 @@ def test_database_and_storage_crud_do_not_expose_secrets(client, admin_headers, 
     assert "password_encrypted" not in database.json()
     assert storage_test.status_code == 200
     assert storage_test.json()["ok"] is True
+
+
+def test_storage_update_without_config_preserves_existing_config(client, admin_headers, tmp_path):
+    root = tmp_path / "backups"
+    storage_id = create_local_storage(client, admin_headers, root)
+
+    response = client.put(
+        f"/api/v1/storages/{storage_id}",
+        headers=admin_headers,
+        json={"name": "renamed-local"},
+    )
+
+    assert response.status_code == 200, response.text
+    db = SessionLocal()
+    try:
+        storage = db.get(Storage, storage_id)
+        assert decrypt_config(storage.config_encrypted) == {"root_path": str(root)}
+    finally:
+        db.close()
 
 
 def test_upload_backup_verify_and_delete(client, admin_headers, tmp_path):
@@ -46,4 +68,3 @@ def test_upload_backup_verify_and_delete(client, admin_headers, tmp_path):
     assert audit.status_code == 200
     assert any(item["action"] == "backup.delete" for item in audit.json()["items"])
     assert list(Path(tmp_path / "backups").rglob("*"))  # storage directory was used
-

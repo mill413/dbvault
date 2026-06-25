@@ -261,7 +261,10 @@ const handleSubmit = async () => {
     storage_type: form.storage_type,
     is_default: form.is_default,
     capacity_limit_bytes,
-    config,
+  }
+  const hasConfigValue = Object.values(config).some((value) => value !== undefined && value !== null && value !== '')
+  if (!isEdit.value || hasConfigValue) {
+    payload.config = config
   }
 
   submitting.value = true
