@@ -36,6 +36,7 @@ DBVault provides a unified management interface for scheduling, executing, and m
   - [Docker Compose (Recommended)](#docker-compose-recommended)
   - [Pre-built Images](#pre-built-images)
   - [Local Development](#local-development)
+- [Upgrade Guide](#upgrade-guide)
 - [Configuration](#configuration)
 - [API Documentation](#api-documentation)
 - [Project Structure](#project-structure)
@@ -170,6 +171,8 @@ Options:
   -f, --frontend-only      Build/deploy frontend service only
   -d, --down               Stop and remove all containers
   -D, --down-v             Stop and remove containers and volumes
+  -e, --export             Export images to a tar archive
+  -o, --output <dir>       Export directory (default: current directory)
   -h, --help               Show help message
 ```
 
@@ -180,6 +183,7 @@ Options:
 ./deploy.sh -b -a                 # Rebuild and deploy API only
 ./deploy.sh -b -f                 # Rebuild and deploy frontend only
 ./deploy.sh -p myproject -b       # Deploy with custom project name
+./deploy.sh -e -o /tmp            # Export built images to /tmp
 ./deploy.sh -d                    # Stop all services
 ./deploy.sh -D                    # Stop and remove all data
 ```
@@ -255,6 +259,12 @@ alembic revision --autogenerate -m "description"
 alembic downgrade -1
 ```
 
+## Upgrade Guide
+
+For running services, follow the documented upgrade flow before replacing containers: back up the metadata database and local DBVault data volume, keep the Git checkout and Docker images on the same version, run `alembic upgrade head`, then restart the API and frontend.
+
+See [docs/UPGRADE.md](docs/UPGRADE.md) for source-based upgrades, release-image upgrades, validation, and rollback steps.
+
 ## Configuration
 
 All configuration is managed via environment variables (prefix `DBVAULT_`). See [`.env.example`](.env.example) for a complete reference file.
@@ -291,6 +301,7 @@ All configuration is managed via environment variables (prefix `DBVAULT_`). See 
 | --- | --- | --- |
 | `DBVAULT_BACKUP_TMP_DIR` | `./dbvault_tmp` | Temporary directory for backup processing |
 | `DBVAULT_LOCAL_STORAGE_ROOT` | `./dbvault_backups` | Root directory for local storage backend |
+| `DBVAULT_KUBECONFIG_DIR` | `/var/lib/dbvault/kubeconfigs` | Directory for uploaded kubeconfig files |
 
 ### Advanced
 
@@ -299,6 +310,8 @@ All configuration is managed via environment variables (prefix `DBVAULT_`). See 
 | `DBVAULT_REDIS_URL` | `redis://localhost:6379/0` | Redis connection URL |
 | `DBVAULT_SCHEDULER_ENABLED` | `true` | Enable/disable the background job scheduler |
 | `DBVAULT_RUN_BACKGROUND_TASKS_INLINE` | `false` | Run background tasks synchronously (dev/test only) |
+| `DBVAULT_INITIAL_ADMIN_USERNAME` | `admin` | Initial admin username created on first startup |
+| `DBVAULT_INITIAL_ADMIN_PASSWORD` | `admin123456789` | Initial admin password created on first startup |
 
 ## API Documentation
 
@@ -311,10 +324,10 @@ The API is organized into the following modules:
 | **Databases** | `/api/v1/databases` | Database instance registration and testing |
 | **Storages** | `/api/v1/storages` | Storage backend management |
 | **Backups** | `/api/v1/backups` | Backup execution, download, and metadata |
-| **Restores** | `/api/v1/restores` | Restore execution and progress tracking |
+| **Restores** | `/api/v1/restore`, `/api/v1/restore-tasks` | Restore execution and progress tracking |
 | **Jobs** | `/api/v1/jobs` | Scheduled job configuration and control |
 | **Alerts** | `/api/v1/alerts` | Alert querying and acknowledgment |
-| **Audit** | `/api/v1/audit` | Operation audit log |
+| **Audit** | `/api/v1/audit-logs` | Operation audit log |
 | **Kubeconfigs** | `/api/v1/kubeconfigs` | Kubernetes cluster configuration |
 | **Dashboard** | `/api/v1/dashboard` | Summary statistics and trends |
 
@@ -415,10 +428,11 @@ See existing drivers for reference implementations.
 
 Every push to `main` triggers a [GitHub Actions](.github/workflows/build-and-release.yml) workflow that:
 
-1. Builds API and Frontend Docker images
-2. Tags them with the commit SHA and timestamp
-3. Exports to a `.tar.gz` archive
-4. Creates a GitHub Release with the archive attached
+1. Runs Ruff, pytest, and the frontend production build
+2. Builds API and Frontend Docker images
+3. Tags them with the commit SHA and timestamp
+4. Exports to a `.tar.gz` archive
+5. Creates a GitHub Release with the archive attached
 
 ## Contributing
 
@@ -426,9 +440,10 @@ Contributions are welcome. Please:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3. Keep commits focused and use conventional commit messages, for example `fix(restore): require target database`
+4. Run `ruff check app tests alembic`, `pytest`, and `cd frontend && npm run build`
+5. Include screenshots for frontend-visible changes
+6. Push to the branch and open a Pull Request with a summary and validation results
 
 ## License
 

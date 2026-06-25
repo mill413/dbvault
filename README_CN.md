@@ -36,6 +36,7 @@ DBVault 提供统一的管理界面，用于调度、执行和监控跨基础设
   - [Docker Compose（推荐）](#docker-compose推荐)
   - [预构建镜像](#预构建镜像)
   - [本地开发](#本地开发)
+- [升级指南](#升级指南)
 - [配置说明](#配置说明)
 - [API 文档](#api-文档)
 - [项目结构](#项目结构)
@@ -170,6 +171,8 @@ cd docker
   -f, --frontend-only      仅构建/部署前端服务
   -d, --down               停止并移除所有容器
   -D, --down-v             停止并移除容器和数据卷
+  -e, --export             导出镜像为 tar 包
+  -o, --output <dir>       指定导出目录（默认：当前目录）
   -h, --help               显示帮助信息
 ```
 
@@ -180,6 +183,7 @@ cd docker
 ./deploy.sh -b -a                 # 仅重建并部署 API
 ./deploy.sh -b -f                 # 仅重建并部署前端
 ./deploy.sh -p myproject -b       # 使用自定义项目名部署
+./deploy.sh -e -o /tmp            # 导出已构建镜像到 /tmp
 ./deploy.sh -d                    # 停止所有服务
 ./deploy.sh -D                    # 停止所有服务并删除数据卷
 ```
@@ -255,6 +259,12 @@ alembic revision --autogenerate -m "描述信息"
 alembic downgrade -1
 ```
 
+## 升级指南
+
+升级正在运行的服务前，应先备份元数据库和 DBVault 本地数据卷，确保 Git 工作区、Docker 镜像和 Alembic 迁移处于同一版本，执行 `alembic upgrade head` 后再重启 API 与前端容器。
+
+源码升级、发布镜像升级、升级后验证和回滚步骤见 [docs/UPGRADE_CN.md](docs/UPGRADE_CN.md)。
+
 ## 配置说明
 
 所有配置通过环境变量管理（前缀 `DBVAULT_`）。完整配置参考 [`.env.example`](.env.example)。
@@ -291,6 +301,7 @@ alembic downgrade -1
 | --- | --- | --- |
 | `DBVAULT_BACKUP_TMP_DIR` | `./dbvault_tmp` | 备份处理临时目录 |
 | `DBVAULT_LOCAL_STORAGE_ROOT` | `./dbvault_backups` | 本地存储后端根目录 |
+| `DBVAULT_KUBECONFIG_DIR` | `/var/lib/dbvault/kubeconfigs` | 上传 kubeconfig 文件的保存目录 |
 
 ### 高级配置
 
@@ -299,6 +310,8 @@ alembic downgrade -1
 | `DBVAULT_REDIS_URL` | `redis://localhost:6379/0` | Redis 连接地址 |
 | `DBVAULT_SCHEDULER_ENABLED` | `true` | 启用/禁用后台任务调度器 |
 | `DBVAULT_RUN_BACKGROUND_TASKS_INLINE` | `false` | 同步运行后台任务（仅开发/测试环境） |
+| `DBVAULT_INITIAL_ADMIN_USERNAME` | `admin` | 首次启动时创建的管理员用户名 |
+| `DBVAULT_INITIAL_ADMIN_PASSWORD` | `admin123456789` | 首次启动时创建的管理员密码 |
 
 ## API 文档
 
@@ -311,10 +324,10 @@ API 按以下模块组织：
 | **数据库** | `/api/v1/databases` | 数据库实例注册与连通性测试 |
 | **存储** | `/api/v1/storages` | 存储后端管理 |
 | **备份** | `/api/v1/backups` | 备份执行、下载和元数据管理 |
-| **恢复** | `/api/v1/restores` | 恢复执行和进度追踪 |
+| **恢复** | `/api/v1/restore`、`/api/v1/restore-tasks` | 恢复执行和进度追踪 |
 | **任务** | `/api/v1/jobs` | 定时任务配置和控制 |
 | **告警** | `/api/v1/alerts` | 告警查询和确认 |
-| **审计** | `/api/v1/audit` | 操作审计日志 |
+| **审计** | `/api/v1/audit-logs` | 操作审计日志 |
 | **Kubeconfig** | `/api/v1/kubeconfigs` | Kubernetes 集群配置管理 |
 | **仪表盘** | `/api/v1/dashboard` | 统计摘要和趋势数据 |
 
@@ -415,10 +428,11 @@ ruff check --fix app tests alembic
 
 每次推送到 `main` 分支会触发 [GitHub Actions](.github/workflows/build-and-release.yml) 工作流：
 
-1. 构建 API 和前端 Docker 镜像
-2. 使用 commit SHA 和时间戳进行标记
-3. 导出为 `.tar.gz` 归档文件
-4. 创建 GitHub Release 并附带归档文件
+1. 运行 Ruff、pytest 和前端生产构建
+2. 构建 API 和前端 Docker 镜像
+3. 使用 commit SHA 和时间戳进行标记
+4. 导出为 `.tar.gz` 归档文件
+5. 创建 GitHub Release 并附带归档文件
 
 ## 参与贡献
 
@@ -426,9 +440,10 @@ ruff check --fix app tests alembic
 
 1. Fork 本仓库
 2. 创建功能分支（`git checkout -b feature/amazing-feature`）
-3. 提交更改（`git commit -m 'Add amazing feature'`）
-4. 推送到分支（`git push origin feature/amazing-feature`）
-5. 发起 Pull Request
+3. 保持提交聚焦，并使用 conventional commit，例如 `fix(restore): require target database`
+4. 运行 `ruff check app tests alembic`、`pytest` 和 `cd frontend && npm run build`
+5. 前端可见变更需要附截图
+6. 推送分支并发起 Pull Request，说明变更内容和验证结果
 
 ## 许可证
 
