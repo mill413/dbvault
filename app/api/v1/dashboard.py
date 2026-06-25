@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import Date, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
@@ -49,15 +49,16 @@ def backup_trends(
     user: User = Depends(require_permission("backup:read")),
 ):
     since = datetime.now(UTC) - timedelta(days=days)
+    day_expr = func.date(BackupTask.created_at)
     query = db.query(
-        BackupTask.created_at.cast(Date).label("day"),
+        day_expr.label("day"),
         BackupTask.status,
         func.count(BackupTask.id),
     ).filter(BackupTask.created_at >= since)
     query = owner_filter(query, BackupTask, user)
     rows = (
-        query.group_by(BackupTask.created_at.cast(Date), BackupTask.status)
-        .order_by(BackupTask.created_at.cast(Date).asc())
+        query.group_by(day_expr, BackupTask.status)
+        .order_by(day_expr.asc())
         .all()
     )
     if not rows:
@@ -65,7 +66,7 @@ def backup_trends(
 
     grouped: dict[str, dict] = defaultdict(lambda: {"success_count": 0, "failed_count": 0})
     for d, status, count in rows:
-        key = str(d)
+        key = d.isoformat() if isinstance(d, date) else str(d)
         if status == "SUCCESS":
             grouped[key]["success_count"] = count
         elif status == "FAILED":
