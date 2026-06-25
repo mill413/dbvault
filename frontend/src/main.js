@@ -18,7 +18,8 @@ app.use(pinia)
 app.use(router)
 app.use(i18n)
 
-const elLocale = i18n.global.locale === 'zh' ? zhCn : en
+const currentLocale = typeof i18n.global.locale === 'string' ? i18n.global.locale : i18n.global.locale.value
+const elLocale = currentLocale === 'zh' ? zhCn : en
 app.use(ElementPlus, { locale: elLocale })
 
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

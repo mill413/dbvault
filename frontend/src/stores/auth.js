@@ -44,5 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('refresh_token')
   }
 
+  window.addEventListener('dbvault:auth-cleared', clearAuth)
+
   return { user, accessToken, refreshToken, login, logout, fetchUser }
 })

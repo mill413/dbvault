@@ -25,6 +25,7 @@ api.interceptors.response.use(
       if (status === 401) {
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
+        window.dispatchEvent(new Event('dbvault:auth-cleared'))
         router.push('/login')
         if (!silent) ElMessage.warning('Session expired. Please sign in again.')
       } else if (status === 403) {
