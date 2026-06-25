@@ -258,7 +258,9 @@ def cancel_backup_task(
     if not task:
         raise AppError("RESOURCE_NOT_FOUND", "Backup task not found", status_code=404)
     ensure_owner(task, user, "Backup task not found")
-    if task.status not in {"PENDING", "RUNNING"}:
+    if task.status == "RUNNING":
+        raise AppError("VALIDATION_ERROR", "Running backup tasks cannot be cancelled", status_code=400)
+    if task.status != "PENDING":
         raise AppError("VALIDATION_ERROR", "Task cannot be cancelled", status_code=400)
     task.status = "CANCELLED"
     task.ended_at = datetime.now(UTC)

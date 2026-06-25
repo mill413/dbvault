@@ -71,3 +71,23 @@ def test_job_crud_and_trigger_building(client, admin_headers, tmp_path):
     assert disabled.status_code == 200
     assert disabled.json()["enabled"] is False
 
+
+def test_invalid_job_schedule_is_rejected_before_persisting(client, admin_headers, tmp_path):
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers)
+
+    created = client.post(
+        "/api/v1/jobs",
+        headers=admin_headers,
+        json={
+            "name": "broken-cron",
+            "database_id": database_id,
+            "storage_id": storage_id,
+            "schedule_type": "CRON",
+        },
+    )
+    jobs = client.get("/api/v1/jobs", headers=admin_headers)
+
+    assert created.status_code == 400
+    assert created.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert jobs.json()["total"] == 0

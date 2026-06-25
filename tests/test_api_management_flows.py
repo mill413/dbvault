@@ -126,3 +126,47 @@ def test_database_storage_and_job_management(client, admin_headers, tmp_path):
     assert backups_after_job_delete.json()["total"] == 0
     assert db_delete.status_code == 200
     assert storage_delete.status_code == 200
+
+
+def test_run_now_respects_job_concurrency(client, admin_headers, tmp_path):
+    from app.core.database import SessionLocal
+    from app.models import BackupTask, Job
+
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers)
+    job = client.post(
+        "/api/v1/jobs",
+        headers=admin_headers,
+        json={
+            "name": "non-concurrent",
+            "database_id": database_id,
+            "storage_id": storage_id,
+            "schedule_type": "INTERVAL",
+            "interval_seconds": 3600,
+            "allow_concurrent": False,
+            "backup_config": {"compression": "none"},
+        },
+    )
+    job_id = job.json()["id"]
+    db = SessionLocal()
+    try:
+        created_by = db.get(Job, job_id).created_by
+        db.add(
+            BackupTask(
+                database_id=database_id,
+                storage_id=storage_id,
+                job_id=job_id,
+                status="RUNNING",
+                trigger_type="JOB",
+                config={},
+                created_by=created_by,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    run_now = client.post(f"/api/v1/jobs/{job_id}/run-now", headers=admin_headers)
+
+    assert run_now.status_code == 400
+    assert run_now.json()["error"]["code"] == "JOB_ALREADY_RUNNING"

@@ -1,7 +1,9 @@
 from pathlib import Path
 
+from app.core.database import SessionLocal
 from app.drivers.database.base import BackupResult, CommandResult
 from app.drivers.registry import registry
+from app.models import BackupTask
 from tests.conftest import create_database_instance, create_local_storage
 
 
@@ -90,6 +92,41 @@ def test_failed_backup_task_is_visible_in_backup_list(client, admin_headers, tmp
     assert backups.json()["total"] == 1
     assert backups.json()["items"][0]["status"] == "FAILED"
     assert backups.json()["items"][0]["source_type"] == "MANUAL"
+
+
+def test_cancel_backup_task_only_allows_pending_tasks(client, admin_headers, tmp_path):
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers)
+    db = SessionLocal()
+    try:
+        pending = BackupTask(
+            database_id=database_id,
+            storage_id=storage_id,
+            status="PENDING",
+            trigger_type="MANUAL",
+            config={},
+        )
+        running = BackupTask(
+            database_id=database_id,
+            storage_id=storage_id,
+            status="RUNNING",
+            trigger_type="MANUAL",
+            config={},
+        )
+        db.add_all([pending, running])
+        db.commit()
+        pending_id = pending.id
+        running_id = running.id
+    finally:
+        db.close()
+
+    pending_cancel = client.post(f"/api/v1/backup-tasks/{pending_id}/cancel", headers=admin_headers)
+    running_cancel = client.post(f"/api/v1/backup-tasks/{running_id}/cancel", headers=admin_headers)
+
+    assert pending_cancel.status_code == 200
+    assert pending_cancel.json()["status"] == "CANCELLED"
+    assert running_cancel.status_code == 400
+    assert running_cancel.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 def test_restore_run_validates_checksum_and_uses_driver(client, admin_headers, tmp_path):

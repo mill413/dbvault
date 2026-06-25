@@ -4,6 +4,7 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.database import SessionLocal
+from app.core.errors import AppError
 from app.models import BackupTask, Job, User
 from app.schemas.backups import BackupRunRequest
 from app.services.backup_service import create_backup_task, run_backup_task
@@ -32,6 +33,20 @@ def create_scheduler() -> BackgroundScheduler:
     return BackgroundScheduler(timezone="Asia/Shanghai")
 
 
+def job_has_active_task(db, job: Job) -> bool:
+    return (
+        db.query(BackupTask)
+        .filter(BackupTask.job_id == job.id, BackupTask.status.in_(["PENDING", "RUNNING"]))
+        .first()
+        is not None
+    )
+
+
+def ensure_job_can_start(db, job: Job) -> None:
+    if not job.allow_concurrent and job_has_active_task(db, job):
+        raise AppError("JOB_ALREADY_RUNNING", "Job already has a pending or running backup task", status_code=400)
+
+
 def execute_job(job_id: int) -> None:
     db = SessionLocal()
     try:
@@ -39,12 +54,7 @@ def execute_job(job_id: int) -> None:
         if not job or not job.enabled or job.deleted_at is not None:
             return
         if not job.allow_concurrent:
-            running = (
-                db.query(BackupTask)
-                .filter(BackupTask.job_id == job.id, BackupTask.status.in_(["PENDING", "RUNNING"]))
-                .first()
-            )
-            if running:
+            if job_has_active_task(db, job):
                 job.skipped_count += 1
                 db.commit()
                 return

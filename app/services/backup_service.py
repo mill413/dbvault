@@ -90,6 +90,8 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
     task = db.get(BackupTask, task_id)
     if not task:
         raise AppError("RESOURCE_NOT_FOUND", "Backup task not found", status_code=404)
+    if task.status == "CANCELLED":
+        return task
     settings = get_settings()
     start = monotonic()
     task.status = "RUNNING"

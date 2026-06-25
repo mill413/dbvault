@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.orm import Session
@@ -9,7 +10,7 @@ from app.core.database import SessionLocal, get_db
 from app.core.errors import AppError
 from app.core.ownership import ensure_owner, owner_filter
 from app.models import Backup, BackupTask, DatabaseInstance, Job, Storage, User
-from app.scheduler.service import reload_job, remove_job
+from app.scheduler.service import build_trigger, ensure_job_can_start, reload_job, remove_job
 from app.schemas.backups import BackupRunRequest, TaskCreatedResponse
 from app.schemas.common import Message, Page
 from app.schemas.jobs import JobCreate, JobRead, JobUpdate
@@ -25,6 +26,13 @@ def _run_backup_task_with_new_session(task_id: int) -> None:
         run_backup_task(db, task_id)
     finally:
         db.close()
+
+
+def _validate_job_schedule(job_like) -> None:
+    try:
+        build_trigger(job_like)
+    except ValueError as exc:
+        raise AppError("VALIDATION_ERROR", str(exc), status_code=400) from exc
 
 
 @router.get("", response_model=Page[JobRead])
@@ -60,7 +68,9 @@ def create_job(
     if not storage or storage.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
     ensure_owner(storage, user, "Storage not found")
-    job = Job(**payload.model_dump(), created_by=user.id)
+    job_data = payload.model_dump()
+    _validate_job_schedule(SimpleNamespace(**job_data))
+    job = Job(**job_data, created_by=user.id)
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -101,6 +111,7 @@ def update_job(
         if not storage or storage.deleted_at is not None:
             raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
         ensure_owner(storage, user, "Storage not found")
+    _validate_job_schedule(SimpleNamespace(**{**job.__dict__, **data}))
     for key, value in data.items():
         setattr(job, key, value)
     db.commit()
@@ -154,6 +165,7 @@ def enable_job(job_id: int, db: Session = Depends(get_db), user: User = Depends(
     if not job or job.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
     ensure_owner(job, user, "Job not found")
+    _validate_job_schedule(job)
     job.enabled = True
     db.commit()
     db.refresh(job)
@@ -186,6 +198,7 @@ def run_job_now(
     if not job or job.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
     ensure_owner(job, user, "Job not found")
+    ensure_job_can_start(db, job)
     payload = BackupRunRequest(
         database_id=job.database_id,
         storage_id=job.storage_id,
