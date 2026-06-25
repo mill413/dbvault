@@ -146,6 +146,12 @@ if [ "$BUILD" = true ]; then
     echo "镜像构建完成"
 fi
 
+if [ "$FRONTEND_ONLY" != true ]; then
+    echo "执行数据库迁移..."
+    docker compose up -d postgres redis
+    docker compose run --rm api alembic upgrade head
+fi
+
 echo "启动服务..."
 if [ "$API_ONLY" = true ]; then
     docker compose up -d api

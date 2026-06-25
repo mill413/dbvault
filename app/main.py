@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import SessionLocal
 from app.core.errors import AppError, app_error_handler
 from app.core.logging import configure_logging
 from app.drivers.bootstrap import register_builtin_drivers
@@ -17,7 +17,6 @@ from app.services.auth_service import ensure_initial_admin
 async def lifespan(app: FastAPI):
     configure_logging()
     register_builtin_drivers()
-    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         ensure_initial_admin(db)

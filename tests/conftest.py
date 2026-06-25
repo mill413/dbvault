@@ -4,7 +4,10 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
 from fastapi.testclient import TestClient
+
+from alembic import command
 
 TEST_ROOT = Path(tempfile.mkdtemp(prefix="dbvault-tests-"))
 os.environ["DBVAULT_DATABASE_URL"] = f"sqlite:///{TEST_ROOT / 'test.db'}"
@@ -16,19 +19,26 @@ os.environ["DBVAULT_RUN_BACKGROUND_TASKS_INLINE"] = "true"
 os.environ["DBVAULT_SCHEDULER_ENABLED"] = "false"
 os.environ["DBVAULT_INITIAL_ADMIN_PASSWORD"] = "admin123456789"
 
-from app.core.database import Base, engine  # noqa: E402
 from app.drivers.bootstrap import register_builtin_drivers  # noqa: E402
 from app.main import app  # noqa: E402
+
+
+def _alembic_config() -> Config:
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", os.environ["DBVAULT_DATABASE_URL"])
+    return config
 
 
 @pytest.fixture(autouse=True)
 def reset_database():
     register_builtin_drivers()
     shutil.rmtree(TEST_ROOT / "kubeconfigs", ignore_errors=True)
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    shutil.rmtree(TEST_ROOT / "backups", ignore_errors=True)
+    shutil.rmtree(TEST_ROOT / "case-backups", ignore_errors=True)
+    command.downgrade(_alembic_config(), "base")
+    command.upgrade(_alembic_config(), "head")
     yield
-    Base.metadata.drop_all(bind=engine)
+    command.downgrade(_alembic_config(), "base")
 
 
 @pytest.fixture
