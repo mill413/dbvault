@@ -39,6 +39,8 @@ def test_mysql_driver_uses_argument_array_and_env_password(monkeypatch, tmp_path
     assert calls[0]["env"]["MYSQL_PWD"] == "secret"
     assert calls[1]["args"][0] == "mysqldump"
     assert "--single-transaction" in calls[1]["args"]
+    assert "--databases" not in calls[1]["args"]
+    assert calls[1]["args"][-1] == "orders"
     assert backup_result.raw_file.read_text(encoding="utf-8") == "CREATE TABLE t(id int);"
 
 

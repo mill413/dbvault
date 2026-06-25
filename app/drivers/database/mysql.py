@@ -38,6 +38,11 @@ class MySQLDriver(BackupDriver):
         env["MYSQL_PWD"] = self.password
         return env
 
+    def _dump_database_args(self) -> list[str]:
+        if self.instance.database_name:
+            return [self.instance.database_name]
+        return ["--all-databases"]
+
     def test_connection(self) -> dict:
         if self._k8s_mode:
             k8s = self._k8s_config
@@ -75,10 +80,7 @@ class MySQLDriver(BackupDriver):
                 "--single-transaction", "--routines", "--triggers",
                 "--events", "--hex-blob",
             ]
-            if self.instance.database_name:
-                cmd += ["--databases", self.instance.database_name]
-            else:
-                cmd.append("--all-databases")
+            cmd += self._dump_database_args()
             start = monotonic()
             with target.open("wb") as output:
                 result = run_kubectl_command(
@@ -101,10 +103,7 @@ class MySQLDriver(BackupDriver):
             "--events",
             "--hex-blob",
         ]
-        if self.instance.database_name:
-            args += ["--databases", self.instance.database_name]
-        else:
-            args.append("--all-databases")
+        args += self._dump_database_args()
         start = monotonic()
         with target.open("wb") as output:
             result = run_command(args, env=self._env(), output_file=output, timeout_seconds=timeout_seconds)
