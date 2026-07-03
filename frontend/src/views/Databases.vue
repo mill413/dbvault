@@ -145,7 +145,12 @@
               <el-select v-model="form.k8s_config.namespace" filterable allow-create style="flex: 1" :loading="k8sNamespacesLoading">
                 <el-option v-for="ns in k8sNamespaces" :key="ns" :label="ns" :value="ns" />
               </el-select>
-              <el-button @click="fetchK8sNamespaces" :loading="k8sNamespacesLoading">
+              <el-button
+                @click="fetchK8sNamespaces"
+                :loading="k8sNamespacesLoading"
+                :aria-label="$t('common.refresh')"
+                :title="$t('common.refresh')"
+              >
                 <el-icon><Refresh /></el-icon>
               </el-button>
             </div>
@@ -164,7 +169,12 @@
                   <el-tag :type="getPodStatusType(pod.status)" size="small" style="float: right">{{ pod.status }}</el-tag>
                 </el-option>
               </el-select>
-              <el-button @click="fetchK8sPods" :loading="k8sPodsLoading">
+              <el-button
+                @click="fetchK8sPods"
+                :loading="k8sPodsLoading"
+                :aria-label="$t('common.refresh')"
+                :title="$t('common.refresh')"
+              >
                 <el-icon><Refresh /></el-icon>
               </el-button>
             </div>

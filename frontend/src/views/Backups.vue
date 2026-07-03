@@ -247,9 +247,10 @@ const handleVerify = async (row) => {
 }
 
 const handleDownload = async (row) => {
+  let url = ''
   try {
     const response = await downloadBackup(row.id)
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', row.filename)
@@ -258,6 +259,10 @@ const handleDownload = async (row) => {
     link.remove()
   } catch (error) {
     console.error('Failed to download:', error)
+  } finally {
+    if (url) {
+      window.URL.revokeObjectURL(url)
+    }
   }
 }
 
@@ -265,7 +270,7 @@ const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(t('backup.deleteConfirm', { name: row.filename }), t('common.confirm'), { type: 'warning' })
     await deleteBackup(row.id)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('common.deleteSuccess'))
     fetchData()
   } catch (error) {
     if (error !== 'cancel') {

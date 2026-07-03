@@ -25,6 +25,7 @@ export default {
     no: 'No',
     noData: 'No Data Available',
     details: 'Details',
+    refresh: 'Refresh',
     updateSuccess: 'Updated successfully',
     createSuccess: 'Created successfully',
     deleteSuccess: 'Deleted successfully',

@@ -25,6 +25,7 @@ export default {
     no: '否',
     noData: '暂无数据',
     details: '详情',
+    refresh: '刷新',
     updateSuccess: '更新成功',
     createSuccess: '创建成功',
     deleteSuccess: '删除成功',
