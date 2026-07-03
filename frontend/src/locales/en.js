@@ -30,7 +30,10 @@ export default {
     deleteSuccess: 'Deleted successfully',
     ok: 'OK',
     fail: 'Failed',
-    accessDenied: 'Access denied. You do not have permission to view this page.'
+    accessDenied: 'Access denied. You do not have permission to view this page.',
+    themeToggle: 'Toggle dark mode',
+    userMenu: 'User menu',
+    signedOut: 'Signed out'
   },
   login: {
     title: 'Secure. Reliable. Database Management.',

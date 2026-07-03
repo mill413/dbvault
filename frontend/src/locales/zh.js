@@ -30,7 +30,10 @@ export default {
     deleteSuccess: '删除成功',
     ok: '正常',
     fail: '失败',
-    accessDenied: '权限不足，无法访问该页面'
+    accessDenied: '权限不足，无法访问该页面',
+    themeToggle: '切换深色模式',
+    userMenu: '用户菜单',
+    signedOut: '已退出登录'
   },
   login: {
     title: 'DBVault',

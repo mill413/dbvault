@@ -18,12 +18,18 @@
         </div>
         <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handleLogin" size="large">
           <el-form-item prop="username">
-            <el-input v-model="form.username" :placeholder="$t('login.username')" prefix-icon="User" />
+            <el-input
+              v-model="form.username"
+              :aria-label="$t('login.username')"
+              :placeholder="$t('login.username')"
+              prefix-icon="User"
+            />
           </el-form-item>
           <el-form-item prop="password">
             <el-input
               v-model="form.password"
               type="password"
+              :aria-label="$t('login.password')"
               :placeholder="$t('login.password')"
               prefix-icon="Lock"
               show-password

@@ -60,6 +60,7 @@
         <div class="header-right">
           <el-switch
             v-model="isDark"
+            :aria-label="$t('common.themeToggle')"
             inline-prompt
             :active-icon="Moon"
             :inactive-icon="Sunny"
@@ -67,7 +68,14 @@
             style="margin-right: 24px; --el-switch-on-color: var(--border-color); --el-switch-off-color: var(--border-color);"
           />
           <el-dropdown @command="handleCommand" trigger="click">
-            <div class="user-profile">
+            <div
+              class="user-profile"
+              role="button"
+              tabindex="0"
+              :aria-label="$t('common.userMenu')"
+              @keydown.enter.prevent="$event.currentTarget.click()"
+              @keydown.space.prevent="$event.currentTarget.click()"
+            >
               <div class="avatar">
                 <el-icon><User /></el-icon>
               </div>
@@ -112,7 +120,7 @@ const authStore = useAuthStore()
 const { t } = useI18n()
 
 const activeMenu = computed(() => route.path)
-const currentTitle = computed(() => route.meta.title || '')
+const currentTitle = computed(() => (route.meta.titleKey ? t(route.meta.titleKey) : ''))
 const userRole = computed(() => authStore.user?.role || '')
 const canView = (name) => canViewRoute(userRole.value, name)
 
@@ -137,6 +145,7 @@ const onMediaChange = (e) => {
 }
 
 onMounted(() => {
+  applyTheme(isDark.value)
   mediaQuery.addEventListener('change', onMediaChange)
 
   if (route.query.denied === '1') {
@@ -152,7 +161,7 @@ onUnmounted(() => {
 const handleCommand = async (command) => {
   if (command === 'logout') {
     await authStore.logout()
-    ElMessage.success(t('common.signOut') + ' OK')
+    ElMessage.success(t('common.signedOut'))
     router.push('/login')
   }
 }
