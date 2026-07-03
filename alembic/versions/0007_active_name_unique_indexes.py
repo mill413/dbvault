@@ -20,12 +20,17 @@ NAMING_CONVENTION = {"uq": "uq_%(table_name)s_%(column_0_name)s"}
 
 
 def _drop_global_unique(table_name: str, column_name: str) -> None:
-    dialect = op.get_bind().dialect.name
+    bind = op.get_bind()
+    dialect = bind.dialect.name
     if dialect == "postgresql":
-        op.drop_constraint(f"{table_name}_{column_name}_key", table_name, type_="unique")
+        constraint_name = f"{table_name}_{column_name}_key"
+        existing_names = {constraint["name"] for constraint in sa.inspect(bind).get_unique_constraints(table_name)}
+        if constraint_name in existing_names:
+            op.drop_constraint(constraint_name, table_name, type_="unique")
         return
+    constraint_name = f"uq_{table_name}_{column_name}"
     with op.batch_alter_table(table_name, naming_convention=NAMING_CONVENTION) as batch_op:
-        batch_op.drop_constraint(f"uq_{table_name}_{column_name}", type_="unique")
+        batch_op.drop_constraint(constraint_name, type_="unique")
 
 
 def _create_global_unique(table_name: str, column_name: str) -> None:

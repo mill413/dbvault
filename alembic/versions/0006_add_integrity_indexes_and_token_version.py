@@ -18,6 +18,14 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    if op.get_bind().dialect.name == "postgresql":
+        op.alter_column(
+            "alembic_version",
+            "version_num",
+            existing_type=sa.String(32),
+            type_=sa.String(128),
+            existing_nullable=False,
+        )
     op.add_column("users", sa.Column("token_version", sa.Integer(), server_default="0", nullable=False))
     with op.batch_alter_table("backups") as batch_op:
         batch_op.create_unique_constraint("uq_backups_backup_task_id", ["backup_task_id"])
