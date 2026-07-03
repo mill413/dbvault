@@ -157,6 +157,7 @@ Once running:
 **Default credentials:** `admin` / `admin123456789`
 
 > **Note:** Change `DBVAULT_JWT_SECRET` in production. The default value is for development only.
+> `deploy.sh` automatically loads the project-root `.env` file. Variables already set in the current shell take precedence.
 
 #### Deploy Script Usage
 
@@ -210,8 +211,8 @@ PY
 # Put the generated value in DBVAULT_ENCRYPTION_KEY and set strong
 # DBVAULT_JWT_SECRET / DBVAULT_POSTGRES_PASSWORD values.
 
-# Start the stack
-docker compose -f docker/docker-compose.yml up -d
+# Start the stack. deploy.sh loads .env before running Docker Compose.
+./docker/deploy.sh
 ```
 
 ### Local Development

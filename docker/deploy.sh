@@ -28,6 +28,9 @@ usage() {
     echo "  $0 -d                         # 停止所有容器"
     echo "  $0 -D                         # 停止所有容器并删除数据卷"
     echo ""
+    echo "环境变量:"
+    echo "  默认读取项目根目录的 .env 文件；当前 shell 已设置的变量优先。"
+    echo ""
     echo "K8s 支持说明:"
     echo "  K8s 集群配置现在通过前端界面管理，无需手动配置 kubeconfig。"
     echo "  部署后在前端的「数据库实例」页面中添加 K8s 类型的数据库时，"
@@ -93,10 +96,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-cd "$SCRIPT_DIR"
-
-export COMPOSE_PROJECT_NAME="$PROJECT_NAME"
-
 set_compose_placeholder_env() {
     export DBVAULT_POSTGRES_PASSWORD="${DBVAULT_POSTGRES_PASSWORD:-unused-for-compose-down}"
     export DBVAULT_JWT_SECRET="${DBVAULT_JWT_SECRET:-unused-for-compose-down}"
@@ -110,6 +109,36 @@ print_secret_help() {
     echo "  export DBVAULT_JWT_SECRET='请替换为强随机字符串'"
     echo "  export DBVAULT_ENCRYPTION_KEY=\"\$(python3 -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')\""
     echo "  $0 -b"
+}
+
+load_env_file() {
+    local env_file="$PROJECT_ROOT/.env"
+    if [ ! -f "$env_file" ]; then
+        return
+    fi
+
+    echo "加载环境变量: $env_file"
+    local existing_names=()
+    local existing_values=()
+    local line name
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*= ]]; then
+            name="${BASH_REMATCH[2]}"
+            if [[ -v "$name" ]]; then
+                existing_names+=("$name")
+                existing_values+=("${!name}")
+            fi
+        fi
+    done < "$env_file"
+
+    set -a
+    # shellcheck disable=SC1090
+    . "$env_file"
+    set +a
+
+    for i in "${!existing_names[@]}"; do
+        export "${existing_names[$i]}=${existing_values[$i]}"
+    done
 }
 
 require_env() {
@@ -159,6 +188,11 @@ validate_deploy_env() {
         exit 1
     fi
 }
+
+load_env_file
+cd "$SCRIPT_DIR"
+
+export COMPOSE_PROJECT_NAME="$PROJECT_NAME"
 
 if [ "$DOWN_V" = true ]; then
     echo "停止并删除所有容器和数据卷..."

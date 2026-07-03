@@ -157,6 +157,7 @@ cd docker
 **默认凭据：** `admin` / `admin123456789`
 
 > **注意：** 生产环境请务必修改 `DBVAULT_JWT_SECRET`，默认值仅用于开发环境。
+> `deploy.sh` 会自动读取项目根目录的 `.env` 文件；当前 shell 已设置的变量优先。
 
 #### 部署脚本使用说明
 
@@ -210,8 +211,8 @@ PY
 # 将生成值写入 DBVAULT_ENCRYPTION_KEY，并设置强随机的
 # DBVAULT_JWT_SECRET / DBVAULT_POSTGRES_PASSWORD。
 
-# 启动服务
-docker compose -f docker/docker-compose.yml up -d
+# 启动服务，deploy.sh 会先读取 .env 再执行 Docker Compose
+./docker/deploy.sh
 ```
 
 ### 本地开发
