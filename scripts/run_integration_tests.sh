@@ -13,7 +13,7 @@ cd "$PROJECT_ROOT"
 
 cleanup() {
     if [[ "${DBVAULT_IT_KEEP_SERVICES:-false}" != "true" ]]; then
-        docker compose -f "$COMPOSE_FILE" --profile integration stop mysql-source postgres-source minio >/dev/null
+        docker compose -f "$COMPOSE_FILE" --profile integration down -v --remove-orphans >/dev/null
     fi
 }
 

@@ -4,10 +4,11 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.api.pagination import Pagination, pagination_params
 from app.core.database import get_db
 from app.core.errors import AppError
 from app.core.ownership import ensure_owner, is_admin, owner_filter
-from app.models import Storage, User
+from app.models import Job, Storage, User
 from app.schemas.common import Message, Page
 from app.schemas.storages import StorageCapacityResponse, StorageCreate, StorageRead, StorageTestResponse, StorageUpdate
 from app.services.audit_service import create_audit_log
@@ -18,8 +19,7 @@ router = APIRouter()
 
 @router.get("", response_model=Page[StorageRead])
 def list_storages(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("storage:read")),
 ):
@@ -27,9 +27,9 @@ def list_storages(
     query = owner_filter(query, Storage, user).order_by(Storage.id.asc())
     total = query.count()
     return {
-        "items": query.offset((page - 1) * page_size).limit(page_size).all(),
-        "page": page,
-        "page_size": page_size,
+        "items": query.offset((pagination.page - 1) * pagination.page_size).limit(pagination.page_size).all(),
+        "page": pagination.page,
+        "page_size": pagination.page_size,
         "total": total,
     }
 
@@ -146,6 +146,14 @@ def delete_storage(
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
     ensure_owner(item, user, "Storage not found")
+    has_enabled_job = (
+        db.query(Job)
+        .filter(Job.storage_id == item.id, Job.enabled.is_(True), Job.deleted_at.is_(None))
+        .first()
+        is not None
+    )
+    if has_enabled_job:
+        raise AppError("VALIDATION_ERROR", "Storage is used by an enabled job", status_code=400)
     item.deleted_at = datetime.now(UTC)
     db.commit()
     create_audit_log(

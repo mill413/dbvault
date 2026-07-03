@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.api.pagination import Pagination, pagination_params
 from app.core.database import get_db
 from app.core.errors import AppError
 from app.core.ownership import alert_owner_filter, is_admin
@@ -16,8 +17,7 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 @router.get("", response_model=Page[AlertRead])
 def list_alerts(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
     status: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:read")),
@@ -27,8 +27,13 @@ def list_alerts(
     if status:
         query = query.filter(Alert.status == status)
     total = query.count()
-    items = query.order_by(Alert.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": items, "page": page, "page_size": page_size, "total": total}
+    items = (
+        query.order_by(Alert.created_at.desc())
+        .offset((pagination.page - 1) * pagination.page_size)
+        .limit(pagination.page_size)
+        .all()
+    )
+    return {"items": items, "page": pagination.page, "page_size": pagination.page_size, "total": total}
 
 
 @router.post("/{alert_id}/resolve", response_model=AlertRead)

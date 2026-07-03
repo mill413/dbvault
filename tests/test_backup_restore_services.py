@@ -3,7 +3,7 @@ from pathlib import Path
 from app.core.database import SessionLocal
 from app.drivers.database.base import BackupResult, CommandResult
 from app.drivers.registry import registry
-from app.models import BackupTask
+from app.models import Backup, BackupTask
 from app.services.backup_service import run_backup_task
 from app.services.restore_service import run_restore_task
 from tests.conftest import create_database_instance, create_local_storage
@@ -144,6 +144,21 @@ def test_cancel_backup_task_only_allows_pending_tasks(client, admin_headers, tmp
             trigger_type="MANUAL",
             config={},
         )
+        pending_backup = Backup(
+            database_id=database_id,
+            storage_id=storage_id,
+            backup_task_id=None,
+            backup_type="LOGICAL",
+            status="PENDING",
+            object_key="",
+            filename="pending.sql",
+            file_format="pending",
+            size_bytes=0,
+            compressed=False,
+            sha256="",
+            created_by=None,
+            extra_metadata={},
+        )
         running = BackupTask(
             database_id=database_id,
             storage_id=storage_id,
@@ -152,9 +167,13 @@ def test_cancel_backup_task_only_allows_pending_tasks(client, admin_headers, tmp
             config={},
         )
         db.add_all([pending, running])
+        db.flush()
+        pending_backup.backup_task_id = pending.id
+        db.add(pending_backup)
         db.commit()
         pending_id = pending.id
         running_id = running.id
+        pending_backup_id = pending_backup.id
     finally:
         db.close()
 
@@ -163,6 +182,8 @@ def test_cancel_backup_task_only_allows_pending_tasks(client, admin_headers, tmp
 
     assert pending_cancel.status_code == 200
     assert pending_cancel.json()["status"] == "CANCELLED"
+    backup = client.get(f"/api/v1/backups/{pending_backup_id}", headers=admin_headers)
+    assert backup.json()["status"] == "CANCELLED"
     assert running_cancel.status_code == 400
     assert running_cancel.json()["error"]["code"] == "VALIDATION_ERROR"
 

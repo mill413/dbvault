@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.api.pagination import Pagination, pagination_params
 from app.core.database import get_db
 from app.core.errors import AppError
 from app.core.security import hash_password
@@ -17,15 +18,14 @@ router = APIRouter()
 
 @router.get("", response_model=Page[UserRead])
 def list_users(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("user:read")),
 ):
     query = db.query(User).filter(User.deleted_at.is_(None)).order_by(User.id.asc())
     total = query.count()
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": items, "page": page, "page_size": page_size, "total": total}
+    items = query.offset((pagination.page - 1) * pagination.page_size).limit(pagination.page_size).all()
+    return {"items": items, "page": pagination.page, "page_size": pagination.page_size, "total": total}
 
 
 @router.post("", response_model=UserRead)
@@ -107,6 +107,7 @@ def reset_password(
         raise AppError("RESOURCE_NOT_FOUND", "User not found", status_code=404)
     item.password_hash = hash_password(payload.password)
     item.password_changed_at = datetime.now(UTC)
+    item.token_version += 1
     db.commit()
     create_audit_log(
         db,
@@ -117,4 +118,3 @@ def reset_password(
         request=request,
     )
     return {"message": "password reset"}
-

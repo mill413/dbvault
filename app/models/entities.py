@@ -40,6 +40,7 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
 class DatabaseInstance(Base, TimestampMixin, SoftDeleteMixin):
@@ -83,7 +84,7 @@ class Backup(Base, TimestampMixin, SoftDeleteMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     database_id: Mapped[int] = mapped_column(ForeignKey("database_instances.id"), nullable=False)
     storage_id: Mapped[int] = mapped_column(ForeignKey("storages.id"), nullable=False)
-    backup_task_id: Mapped[int | None] = mapped_column(ForeignKey("backup_tasks.id"))
+    backup_task_id: Mapped[int | None] = mapped_column(ForeignKey("backup_tasks.id"), unique=True)
     backup_type: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     object_key: Mapped[str] = mapped_column(Text, nullable=False)
@@ -187,7 +188,9 @@ class Job(Base, TimestampMixin, SoftDeleteMixin):
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_status: Mapped[str | None] = mapped_column(String(32))
     skipped_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    active_backup_task_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    active_backup_task_id: Mapped[int | None] = mapped_column(
+        ForeignKey("backup_tasks.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
     database: Mapped[DatabaseInstance] = relationship()

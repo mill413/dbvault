@@ -290,7 +290,7 @@ alembic downgrade -1
 | 变量名 | 默认值 | 说明 |
 | --- | --- | --- |
 | `DBVAULT_JWT_SECRET` | `change-me-in-production` | **生产环境必填。** JWT 签名密钥 |
-| `DBVAULT_ENCRYPTION_KEY` | *（自动生成）* | 用于加密存储凭据的 Fernet 密钥 |
+| `DBVAULT_ENCRYPTION_KEY` | *（开发环境从 JWT secret 派生）* | 用于加密存储凭据的 Fernet 密钥；`DBVAULT_ENV=prod` 时必须显式配置 |
 | `DBVAULT_ENABLE_REGISTRATION` | `false` | 是否允许用户自助注册 |
 | `DBVAULT_INITIAL_ADMIN_USERNAME` | `admin` | 首次启动时的默认管理员用户名 |
 | `DBVAULT_INITIAL_ADMIN_PASSWORD` | `admin123456789` | 首次启动时的默认管理员密码（最少 12 位） |

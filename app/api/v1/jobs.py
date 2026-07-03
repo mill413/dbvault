@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.api.pagination import Pagination, pagination_params
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.errors import AppError
@@ -37,8 +38,7 @@ def _validate_job_schedule(job_like) -> None:
 
 @router.get("", response_model=Page[JobRead])
 def list_jobs(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("job:read")),
 ):
@@ -46,9 +46,9 @@ def list_jobs(
     query = owner_filter(query, Job, user).order_by(Job.id.desc())
     total = query.count()
     return {
-        "items": query.offset((page - 1) * page_size).limit(page_size).all(),
-        "page": page,
-        "page_size": page_size,
+        "items": query.offset((pagination.page - 1) * pagination.page_size).limit(pagination.page_size).all(),
+        "page": pagination.page,
+        "page_size": pagination.page_size,
         "total": total,
     }
 

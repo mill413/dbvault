@@ -77,10 +77,10 @@ def _mysql_root(sql: str) -> str:
             MYSQL_PORT,
             "-u",
             "root",
-            f"-p{MYSQL_ROOT_PASSWORD}",
             "-e",
             sql,
-        ]
+        ],
+        env={"MYSQL_PWD": MYSQL_ROOT_PASSWORD},
     ).stdout
 
 
@@ -95,13 +95,13 @@ def _mysql_user(database: str, sql: str) -> str:
             MYSQL_PORT,
             "-u",
             MYSQL_USER,
-            f"-p{MYSQL_PASSWORD}",
             "--batch",
             "--skip-column-names",
             database,
             "-e",
             sql,
-        ]
+        ],
+        env={"MYSQL_PWD": MYSQL_PASSWORD},
     ).stdout.strip()
 
 
@@ -247,7 +247,11 @@ def _restore_backup(client, headers, backup_id: int, target_database_id: int) ->
     assert response.status_code == 200, response.text
     task = client.get(f"/api/v1/restore-tasks/{response.json()['task_id']}", headers=headers)
     assert task.status_code == 200, task.text
-    assert task.json()["status"] == "SUCCESS"
+    payload = task.json()
+    assert payload["status"] == "SUCCESS", (
+        f"{payload['error_code']}: {payload['error_message']} "
+        f"stdout={payload['stdout_tail']} stderr={payload['stderr_tail']}"
+    )
 
 
 def test_mysql_backup_restore_round_trip_with_real_server(client, admin_headers, tmp_path):

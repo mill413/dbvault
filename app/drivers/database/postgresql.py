@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pathlib import Path
 from time import monotonic
 
@@ -10,6 +11,7 @@ from app.utils.paths import safe_filename
 
 class PostgreSQLDriver(BackupDriver):
     db_type = "postgresql"
+    _unsupported_restore_lines = {b"SET transaction_timeout = 0;\n"}
 
     @property
     def _k8s_mode(self) -> bool:
@@ -106,28 +108,61 @@ class PostgreSQLDriver(BackupDriver):
         )
 
     def _clean_args(self) -> list[str]:
-        """Returns SQL to drop and recreate the public schema before restore."""
+        """Returns SQL to recreate the public schema before replaying a pg_dump file."""
         return [
+            "--set=ON_ERROR_STOP=1",
             "-c", "DROP SCHEMA IF EXISTS public CASCADE;",
             "-c", "CREATE SCHEMA public;",
         ]
 
+    def _compatible_restore_file(self, backup_file: Path) -> Path:
+        fd, temp_name = tempfile.mkstemp(prefix=f"{backup_file.stem}-compat-", suffix=backup_file.suffix)
+        temp_path = Path(temp_name)
+        changed = False
+        try:
+            with os.fdopen(fd, "wb") as output, backup_file.open("rb") as source:
+                for line in source:
+                    if line in self._unsupported_restore_lines:
+                        changed = True
+                        continue
+                    output.write(line)
+        except Exception:
+            temp_path.unlink(missing_ok=True)
+            raise
+        if not changed:
+            temp_path.unlink(missing_ok=True)
+            return backup_file
+        return temp_path
+
     def restore(self, backup_file: Path, timeout_seconds: int = 21600):
+        restore_file = self._compatible_restore_file(backup_file)
         if self._k8s_mode:
-            k8s = self._k8s_config
+            try:
+                k8s = self._k8s_config
+                # Step 1: clean the database
+                clean_cmd = ["psql", *self._k8s_conn_args(), *self._clean_args()]
+                clean_result = run_kubectl_command(k8s, clean_cmd, env=self._env(), timeout_seconds=60)
+                if not clean_result.ok:
+                    return clean_result
+                # Step 2: restore
+                cmd = ["psql", *self._k8s_conn_args(), "--set=ON_ERROR_STOP=1"]
+                with restore_file.open("rb") as input_file:
+                    return run_kubectl_command(
+                        k8s, cmd, env=self._env(),
+                        input_file=input_file, timeout_seconds=timeout_seconds,
+                    )
+            finally:
+                if restore_file != backup_file:
+                    restore_file.unlink(missing_ok=True)
+        try:
             # Step 1: clean the database
-            clean_cmd = ["psql", *self._k8s_conn_args(), *self._clean_args()]
-            run_kubectl_command(k8s, clean_cmd, env=self._env(), timeout_seconds=60)
+            clean_args = ["psql", *self._conn_args(), *self._clean_args()]
+            clean_result = run_command(clean_args, env=self._env(), timeout_seconds=60)
+            if not clean_result.ok:
+                return clean_result
             # Step 2: restore
-            cmd = ["psql", *self._k8s_conn_args()]
-            with backup_file.open("rb") as input_file:
-                return run_kubectl_command(
-                    k8s, cmd, env=self._env(),
-                    input_file=input_file, timeout_seconds=timeout_seconds,
-                )
-        # Step 1: clean the database
-        clean_args = ["psql", *self._conn_args(), *self._clean_args()]
-        run_command(clean_args, env=self._env(), timeout_seconds=60)
-        # Step 2: restore
-        args = ["psql", *self._conn_args(), "--file", str(backup_file)]
-        return run_command(args, env=self._env(), timeout_seconds=timeout_seconds)
+            args = ["psql", *self._conn_args(), "--set=ON_ERROR_STOP=1", "--file", str(restore_file)]
+            return run_command(args, env=self._env(), timeout_seconds=timeout_seconds)
+        finally:
+            if restore_file != backup_file:
+                restore_file.unlink(missing_ok=True)

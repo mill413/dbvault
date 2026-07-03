@@ -79,7 +79,7 @@ class MySQLDriver(BackupDriver):
             cmd = [
                 "mysqldump", "-u", self.instance.username,
                 "--single-transaction", "--routines", "--triggers",
-                "--events", "--hex-blob",
+                "--events", "--hex-blob", "--no-tablespaces",
             ]
             cmd += self._dump_database_args()
             start = monotonic()
@@ -103,6 +103,7 @@ class MySQLDriver(BackupDriver):
             "--triggers",
             "--events",
             "--hex-blob",
+            "--no-tablespaces",
         ]
         args += self._dump_database_args()
         start = monotonic()

@@ -5,13 +5,16 @@ from datetime import datetime
 from pathlib import Path
 
 import yaml
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.core.database import get_db
 from app.core.errors import AppError
 from app.core.ownership import is_admin
 from app.models import User
 from app.schemas.kubeconfig import KubeconfigCreate, KubeconfigRead, KubeconfigTestResult
+from app.services.audit_service import create_audit_log
 
 router = APIRouter()
 
@@ -96,6 +99,8 @@ def list_kubeconfigs(
 @router.post("", response_model=KubeconfigRead)
 def create_kubeconfig(
     payload: KubeconfigCreate,
+    request: Request,
+    db: Session = Depends(get_db),
     user: User = Depends(require_permission("database:write")),
 ):
     _ensure_kubeconfig_dir()
@@ -111,12 +116,22 @@ def create_kubeconfig(
         raise AppError("ALREADY_EXISTS", f"Kubeconfig '{safe_name}' already exists", status_code=409)
     target.write_text(payload.content, encoding="utf-8")
     _write_owner(target, user)
+    create_audit_log(
+        db,
+        user=user,
+        action="kubeconfig.create",
+        resource_type="kubeconfig",
+        resource_id=safe_name,
+        request=request,
+    )
     return KubeconfigRead(**_parse_kubeconfig(target))
 
 
 @router.delete("/{name}")
 def delete_kubeconfig(
     name: str,
+    request: Request,
+    db: Session = Depends(get_db),
     user: User = Depends(require_permission("database:write")),
 ):
     _ensure_kubeconfig_dir()
@@ -127,6 +142,14 @@ def delete_kubeconfig(
             _ensure_kubeconfig_owner(target, user)
             target.unlink()
             _metadata_path(target).unlink(missing_ok=True)
+            create_audit_log(
+                db,
+                user=user,
+                action="kubeconfig.delete",
+                resource_type="kubeconfig",
+                resource_id=safe_name,
+                request=request,
+            )
             return {"message": "deleted"}
     raise AppError("RESOURCE_NOT_FOUND", f"Kubeconfig '{name}' not found", status_code=404)
 
@@ -134,7 +157,9 @@ def delete_kubeconfig(
 @router.post("/{name}/test", response_model=KubeconfigTestResult)
 def test_kubeconfig(
     name: str,
+    request: Request,
     context: str | None = None,
+    db: Session = Depends(get_db),
     user: User = Depends(require_permission("database:read")),
 ):
     _ensure_kubeconfig_dir()
@@ -158,12 +183,42 @@ def test_kubeconfig(
         result = subprocess.run(args, capture_output=True, timeout=15, check=False)
         allowed = result.stdout.decode("utf-8", errors="replace").strip().lower() == "yes"
     except subprocess.TimeoutExpired:
+        create_audit_log(
+            db,
+            user=user,
+            action="kubeconfig.test",
+            resource_type="kubeconfig",
+            resource_id=safe_name,
+            request=request,
+            result="failed",
+            reason="Connection timed out",
+        )
         return KubeconfigTestResult(ok=False, message="Connection timed out", namespaces=None)
     except FileNotFoundError:
+        create_audit_log(
+            db,
+            user=user,
+            action="kubeconfig.test",
+            resource_type="kubeconfig",
+            resource_id=safe_name,
+            request=request,
+            result="failed",
+            reason="kubectl not found",
+        )
         return KubeconfigTestResult(ok=False, message="kubectl not found", namespaces=None)
 
     if not allowed:
         msg = result.stderr.decode("utf-8", errors="replace").strip()
+        create_audit_log(
+            db,
+            user=user,
+            action="kubeconfig.test",
+            resource_type="kubeconfig",
+            resource_id=safe_name,
+            request=request,
+            result="failed",
+            reason=msg or "permission denied",
+        )
         return KubeconfigTestResult(ok=False, message=f"No permission: {msg}", namespaces=None)
 
     args_ns = ["kubectl", "--kubeconfig", str(target)]
@@ -178,4 +233,12 @@ def test_kubeconfig(
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
+    create_audit_log(
+        db,
+        user=user,
+        action="kubeconfig.test",
+        resource_type="kubeconfig",
+        resource_id=safe_name,
+        request=request,
+    )
     return KubeconfigTestResult(ok=True, message=None, namespaces=namespaces)

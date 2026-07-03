@@ -7,11 +7,12 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.api.pagination import Pagination, pagination_params
 from app.core.database import get_db
 from app.core.errors import AppError
 from app.core.ownership import ensure_owner, is_admin, owner_filter
 from app.drivers.database.k8s import list_namespaces, list_pods
-from app.models import DatabaseInstance, User
+from app.models import DatabaseInstance, Job, User
 from app.schemas.common import Message, Page
 from app.schemas.databases import (
     ConnectionTestResponse,
@@ -50,8 +51,7 @@ def _ensure_kubeconfig_access(kubeconfig: str | None, user: User) -> None:
 
 @router.get("", response_model=Page[DatabaseRead])
 def list_databases(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
     db_type: str | None = None,
     environment: str | None = None,
     db: Session = Depends(get_db),
@@ -64,8 +64,13 @@ def list_databases(
     if environment:
         query = query.filter(DatabaseInstance.environment == environment)
     total = query.count()
-    items = query.order_by(DatabaseInstance.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": items, "page": page, "page_size": page_size, "total": total}
+    items = (
+        query.order_by(DatabaseInstance.id.desc())
+        .offset((pagination.page - 1) * pagination.page_size)
+        .limit(pagination.page_size)
+        .all()
+    )
+    return {"items": items, "page": pagination.page, "page_size": pagination.page_size, "total": total}
 
 
 @router.post("", response_model=DatabaseRead)
@@ -173,6 +178,14 @@ def delete_database_endpoint(
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
     ensure_owner(item, user, "Database instance not found")
+    has_enabled_job = (
+        db.query(Job)
+        .filter(Job.database_id == item.id, Job.enabled.is_(True), Job.deleted_at.is_(None))
+        .first()
+        is not None
+    )
+    if has_enabled_job:
+        raise AppError("VALIDATION_ERROR", "Database instance is used by an enabled job", status_code=400)
     item.deleted_at = datetime.now(UTC)
     db.commit()
     create_audit_log(

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from starlette.background import BackgroundTask
 
 from app.api.deps import require_permission
+from app.api.pagination import Pagination, pagination_params
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.errors import AppError
@@ -26,6 +27,7 @@ from app.services.audit_service import create_audit_log
 from app.services.backup_service import (
     create_backup_task,
     delete_backup_record,
+    mark_task_backup_cancelled,
     run_backup_task,
     upload_backup_file,
     verify_backup,
@@ -100,17 +102,32 @@ def upload_backup(
 
 @router.post("/backups/lifecycle/run", response_model=LifecycleCleanupResponse)
 def run_lifecycle_cleanup_endpoint(
+    request: Request,
     dry_run: bool = False,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:delete")),
 ):
-    return run_lifecycle_cleanup(db, dry_run=dry_run, user=user)
+    result = run_lifecycle_cleanup(db, dry_run=dry_run, user=user)
+    create_audit_log(
+        db,
+        user=user,
+        action="backup.lifecycle_run",
+        resource_type="backup",
+        request=request,
+        metadata={
+            "dry_run": dry_run,
+            "candidate_count": result["candidate_count"],
+            "deleted_count": len(result["deleted_backup_ids"]),
+            "failed_count": len(result["failed"]),
+        },
+        result="failed" if result["failed"] else "success",
+    )
+    return result
 
 
 @router.get("/backups", response_model=Page[BackupRead])
 def list_backups(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
     database_id: int | None = None,
     status: str | None = None,
     source_type: str | None = None,
@@ -136,8 +153,13 @@ def list_backups(
         else:
             raise AppError("VALIDATION_ERROR", "Unsupported source_type", status_code=400)
     total = query.count()
-    items = query.order_by(Backup.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": items, "page": page, "page_size": page_size, "total": total}
+    items = (
+        query.order_by(Backup.created_at.desc())
+        .offset((pagination.page - 1) * pagination.page_size)
+        .limit(pagination.page_size)
+        .all()
+    )
+    return {"items": items, "page": pagination.page, "page_size": pagination.page_size, "total": total}
 
 
 @router.get("/backups/{backup_id}", response_model=BackupRead)
@@ -175,6 +197,7 @@ def download_backup(
 @router.post("/backups/{backup_id}/verify", response_model=VerifyResponse)
 def verify_backup_endpoint(
     backup_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:run")),
 ):
@@ -182,7 +205,17 @@ def verify_backup_endpoint(
     if not backup or backup.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Backup not found", status_code=404)
     ensure_owner(backup, user, "Backup not found")
-    return verify_backup(db, backup)
+    result = verify_backup(db, backup)
+    create_audit_log(
+        db,
+        user=user,
+        action="backup.verify",
+        resource_type="backup",
+        resource_id=backup.id,
+        request=request,
+        result="success" if result["ok"] else "failed",
+    )
+    return result
 
 
 @router.delete("/backups/{backup_id}", response_model=Message)
@@ -210,8 +243,7 @@ def delete_backup(
 
 @router.get("/backup-tasks", response_model=Page[BackupTaskRead])
 def list_backup_tasks(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:read")),
 ):
@@ -219,9 +251,9 @@ def list_backup_tasks(
     query = owner_filter(query, BackupTask, user).order_by(BackupTask.created_at.desc())
     total = query.count()
     return {
-        "items": query.offset((page - 1) * page_size).limit(page_size).all(),
-        "page": page,
-        "page_size": page_size,
+        "items": query.offset((pagination.page - 1) * pagination.page_size).limit(pagination.page_size).all(),
+        "page": pagination.page,
+        "page_size": pagination.page_size,
         "total": total,
     }
 
@@ -260,6 +292,7 @@ def get_backup_task_events(
 @router.post("/backup-tasks/{task_id}/cancel", response_model=BackupTaskRead)
 def cancel_backup_task(
     task_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:run")),
 ):
@@ -273,6 +306,15 @@ def cancel_backup_task(
         raise AppError("VALIDATION_ERROR", "Task cannot be cancelled", status_code=400)
     task.status = "CANCELLED"
     task.ended_at = datetime.now(UTC)
+    mark_task_backup_cancelled(db, task)
     db.commit()
     db.refresh(task)
+    create_audit_log(
+        db,
+        user=user,
+        action="backup_task.cancel",
+        resource_type="backup_task",
+        resource_id=task.id,
+        request=request,
+    )
     return task

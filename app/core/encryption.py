@@ -16,6 +16,8 @@ def get_fernet() -> Fernet:
     key = settings.encryption_key
     if key:
         return Fernet(key.encode("utf-8"))
+    if settings.env.lower() == "prod":
+        raise RuntimeError("DBVAULT_ENCRYPTION_KEY is required when DBVAULT_ENV=prod")
     return Fernet(_derive_key(settings.jwt_secret))
 
 
@@ -25,4 +27,3 @@ def encrypt_secret(value: str) -> str:
 
 def decrypt_secret(value: str) -> str:
     return get_fernet().decrypt(value.encode("utf-8")).decode("utf-8")
-

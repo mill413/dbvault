@@ -43,26 +43,39 @@ def test_auth_refresh_change_password_and_user_management(client, admin_headers)
         headers=admin_headers,
         json={"old_password": "admin123456789", "new_password": "new-admin123456"},
     )
+    old_token_rejected = client.get("/api/v1/auth/me", headers=admin_headers)
+    relogin = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "new-admin123456"},
+    )
+    new_admin_headers = {"Authorization": f"Bearer {relogin.json()['access_token']}"}
+    old_refresh_rejected = client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": login.json()["refresh_token"]},
+    )
     created = client.post(
         "/api/v1/users",
-        headers=admin_headers,
+        headers=new_admin_headers,
         json={"username": "operator", "password": "operator123456", "role": "User"},
     )
     user_id = created.json()["id"]
     updated = client.put(
         f"/api/v1/users/{user_id}",
-        headers=admin_headers,
+        headers=new_admin_headers,
         json={"display_name": "Ops", "role": "User"},
     )
     reset = client.post(
         f"/api/v1/users/{user_id}/reset-password",
-        headers=admin_headers,
+        headers=new_admin_headers,
         json={"password": "operator654321"},
     )
-    deleted = client.delete(f"/api/v1/users/{user_id}", headers=admin_headers)
+    deleted = client.delete(f"/api/v1/users/{user_id}", headers=new_admin_headers)
 
     assert refresh.status_code == 200
     assert change.status_code == 200
+    assert old_token_rejected.status_code == 401
+    assert old_refresh_rejected.status_code == 401
+    assert relogin.status_code == 200
     assert created.status_code == 200
     assert updated.json()["display_name"] == "Ops"
     assert updated.json()["role"] == "User"
@@ -192,6 +205,42 @@ def test_run_now_respects_job_concurrency(client, admin_headers, tmp_path):
         db.close()
 
     run_now = client.post(f"/api/v1/jobs/{job_id}/run-now", headers=admin_headers)
+    pending_backups = client.get("/api/v1/backups?status=PENDING", headers=admin_headers)
+    backups = client.get("/api/v1/backups", headers=admin_headers)
 
     assert run_now.status_code == 400
     assert run_now.json()["error"]["code"] == "JOB_ALREADY_RUNNING"
+    assert pending_backups.json()["total"] == 0
+    assert backups.json()["total"] == 0
+
+
+def test_delete_database_or_storage_rejects_enabled_jobs(client, admin_headers, tmp_path):
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers)
+    job = client.post(
+        "/api/v1/jobs",
+        headers=admin_headers,
+        json={
+            "name": "keeps-resources",
+            "database_id": database_id,
+            "storage_id": storage_id,
+            "schedule_type": "INTERVAL",
+            "interval_seconds": 3600,
+            "backup_config": {"compression": "none"},
+        },
+    )
+    job_id = job.json()["id"]
+
+    db_delete = client.delete(f"/api/v1/databases/{database_id}", headers=admin_headers)
+    storage_delete = client.delete(f"/api/v1/storages/{storage_id}", headers=admin_headers)
+    disabled = client.post(f"/api/v1/jobs/{job_id}/disable", headers=admin_headers)
+    db_delete_after_disable = client.delete(f"/api/v1/databases/{database_id}", headers=admin_headers)
+    storage_delete_after_disable = client.delete(f"/api/v1/storages/{storage_id}", headers=admin_headers)
+
+    assert db_delete.status_code == 400
+    assert db_delete.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert storage_delete.status_code == 400
+    assert storage_delete.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert disabled.status_code == 200
+    assert db_delete_after_disable.status_code == 200
+    assert storage_delete_after_disable.status_code == 200

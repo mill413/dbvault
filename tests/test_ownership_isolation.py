@@ -138,10 +138,14 @@ users: []
     alice_list = client.get("/api/v1/kubeconfigs", headers=alice_headers)
     bob_list = client.get("/api/v1/kubeconfigs", headers=bob_headers)
     admin_list = client.get("/api/v1/kubeconfigs", headers=admin_headers)
+    bob_delete = client.delete("/api/v1/kubeconfigs/bob-cluster", headers=bob_headers)
+    audit = client.get("/api/v1/audit-logs", headers=admin_headers)
 
     assert alice_config.status_code == 200, alice_config.text
     assert bob_config.status_code == 200, bob_config.text
     assert [item["name"] for item in alice_list.json()] == ["alice-cluster"]
     assert [item["name"] for item in bob_list.json()] == ["bob-cluster"]
     assert {item["name"] for item in admin_list.json()} >= {"alice-cluster", "bob-cluster"}
+    assert bob_delete.status_code == 200
     assert client.delete("/api/v1/kubeconfigs/bob-cluster", headers=alice_headers).status_code == 404
+    assert {item["action"] for item in audit.json()["items"]} >= {"kubeconfig.create", "kubeconfig.delete"}

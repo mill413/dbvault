@@ -18,6 +18,12 @@ def test_legacy_roles_are_rejected(client, admin_headers):
     )
     assert response.status_code == 422
 
+
+def test_page_size_is_bounded(client, admin_headers):
+    response = client.get("/api/v1/users?page_size=1000000", headers=admin_headers)
+
+    assert response.status_code == 422
+
     response = client.post(
         "/api/v1/users",
         headers=admin_headers,

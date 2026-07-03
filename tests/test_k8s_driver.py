@@ -10,7 +10,12 @@ def test_run_kubectl_command_resolves_label_selector_before_exec(monkeypatch):
         calls.append(args)
         if "get" in args:
             return subprocess.CompletedProcess(args, 0, stdout=b"mysql-0", stderr=b"")
-        return subprocess.CompletedProcess(args, 0, stdout=b"8.0", stderr=b"")
+        return subprocess.CompletedProcess(
+            args,
+            1,
+            stdout=b"",
+            stderr=b"MYSQL_PWD=secret failed",
+        )
 
     monkeypatch.setattr("app.drivers.database.k8s.subprocess.run", fake_run)
 
@@ -20,7 +25,8 @@ def test_run_kubectl_command_resolves_label_selector_before_exec(monkeypatch):
         env={"MYSQL_PWD": "secret"},
     )
 
-    assert result.ok is True
+    assert result.ok is False
+    assert result.stderr_tail == "MYSQL_PWD=*** failed"
     assert calls[0] == [
         "kubectl",
         "-n",
@@ -34,7 +40,6 @@ def test_run_kubectl_command_resolves_label_selector_before_exec(monkeypatch):
     ]
     assert calls[1][:5] == ["kubectl", "-n", "db", "exec", "mysql-0"]
     assert "-l" not in calls[1]
-    assert "MYSQL_PWD=secret" in calls[1]
 
 
 def test_run_kubectl_command_reports_missing_pod(monkeypatch):

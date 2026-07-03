@@ -2,6 +2,7 @@ from pathlib import Path
 
 import boto3
 from botocore.client import Config
+from botocore.exceptions import ClientError
 
 from app.drivers.storage.base import StorageDriver
 
@@ -38,8 +39,11 @@ class S3StorageDriver(StorageDriver):
         try:
             self._client().head_object(Bucket=self.bucket, Key=object_key)
             return True
-        except Exception:
-            return False
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code")
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                return False
+            raise
 
     def delete(self, object_key: str) -> dict:
         self._client().delete_object(Bucket=self.bucket, Key=object_key)
@@ -56,4 +60,3 @@ class S3StorageDriver(StorageDriver):
 
 class MinIOStorageDriver(S3StorageDriver):
     storage_type = "minio"
-

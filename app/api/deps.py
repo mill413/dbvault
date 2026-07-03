@@ -22,6 +22,8 @@ def get_current_user(
     user = db.get(User, int(payload["sub"]))
     if not user or user.deleted_at is not None or user.status != "ACTIVE":
         raise AppError("UNAUTHORIZED", "Invalid user", status_code=401)
+    if payload.get("ver") != user.token_version:
+        raise AppError("UNAUTHORIZED", "Invalid user", status_code=401)
     return user
 
 
@@ -32,4 +34,3 @@ def require_permission(permission: str) -> Callable:
         return user
 
     return dependency
-

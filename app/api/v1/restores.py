@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.api.pagination import Pagination, pagination_params
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.errors import AppError
@@ -28,10 +29,26 @@ def _run_restore_task_with_new_session(task_id: int) -> None:
 @router.post("/restore/dry-run", response_model=RestoreDryRunResponse)
 def dry_run(
     payload: RestoreRunRequest,
+    request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:read")),
 ):
-    return dry_run_restore(db, payload.backup_id, payload.target_database_id, user, payload.restore_mode)
+    result = dry_run_restore(db, payload.backup_id, payload.target_database_id, user, payload.restore_mode)
+    create_audit_log(
+        db,
+        user=user,
+        action="restore.dry_run",
+        resource_type="backup",
+        resource_id=payload.backup_id,
+        request=request,
+        result="success" if result["ok"] else "failed",
+        reason=result["message"],
+        metadata={
+            "target_database_id": payload.target_database_id,
+            "restore_mode": payload.restore_mode,
+        },
+    )
+    return result
 
 
 @router.post("/restore/run", response_model=TaskCreatedResponse)
@@ -60,8 +77,7 @@ def run_restore(
 
 @router.get("/restore-tasks", response_model=Page[RestoreTaskRead])
 def list_restore_tasks(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:read")),
 ):
@@ -69,9 +85,9 @@ def list_restore_tasks(
     query = owner_filter(query, RestoreTask, user).order_by(RestoreTask.created_at.desc())
     total = query.count()
     return {
-        "items": query.offset((page - 1) * page_size).limit(page_size).all(),
-        "page": page,
-        "page_size": page_size,
+        "items": query.offset((pagination.page - 1) * pagination.page_size).limit(pagination.page_size).all(),
+        "page": pagination.page,
+        "page_size": pagination.page_size,
         "total": total,
     }
 

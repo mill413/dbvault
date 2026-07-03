@@ -290,7 +290,7 @@ All configuration is managed via environment variables (prefix `DBVAULT_`). See 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `DBVAULT_JWT_SECRET` | `change-me-in-production` | **Required in production.** Secret key for JWT signing |
-| `DBVAULT_ENCRYPTION_KEY` | *(auto-generated)* | Fernet key for encrypting stored credentials |
+| `DBVAULT_ENCRYPTION_KEY` | *(derived from JWT secret in dev)* | Fernet key for encrypting stored credentials; required when `DBVAULT_ENV=prod` |
 | `DBVAULT_ENABLE_REGISTRATION` | `false` | Allow user self-registration |
 | `DBVAULT_INITIAL_ADMIN_USERNAME` | `admin` | Default admin username on first startup |
 | `DBVAULT_INITIAL_ADMIN_PASSWORD` | `admin123456789` | Default admin password (min 12 chars) |

@@ -3,6 +3,7 @@ import subprocess
 from dataclasses import dataclass
 from time import monotonic
 
+from app.core.logging import mask_secret
 from app.drivers.database.base import CommandResult, elapsed_since, tail_text
 
 
@@ -135,8 +136,8 @@ def run_kubectl_command(
         return CommandResult(
             ok=False,
             returncode=124,
-            stdout_tail=tail_text(exc.stdout or b""),
-            stderr_tail=tail_text(exc.stderr or b"Timeout"),
+            stdout_tail=mask_secret(tail_text(exc.stdout or b"")) or "",
+            stderr_tail=mask_secret(tail_text(exc.stderr or b"Timeout")) or "",
             duration_seconds=elapsed_since(start),
         )
 
@@ -144,8 +145,8 @@ def run_kubectl_command(
     return CommandResult(
         ok=completed.returncode == 0,
         returncode=completed.returncode,
-        stdout_tail=stdout_tail,
-        stderr_tail=tail_text(completed.stderr or b""),
+        stdout_tail=mask_secret(stdout_tail) or "",
+        stderr_tail=mask_secret(tail_text(completed.stderr or b"")) or "",
         duration_seconds=elapsed_since(start),
     )
 

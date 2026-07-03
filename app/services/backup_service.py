@@ -97,10 +97,17 @@ def _clear_stale_job_slot(db: Session, job: Job) -> None:
     if not job.active_backup_task_id:
         return
     task = db.get(BackupTask, job.active_backup_task_id)
-    if task and task.status in {"PENDING", "RUNNING"}:
+    if task and task.job_id == job.id and task.status in {"PENDING", "RUNNING"}:
         return
     job.active_backup_task_id = None
     db.commit()
+
+
+def mark_task_backup_cancelled(db: Session, task: BackupTask) -> None:
+    backup = db.query(Backup).filter(Backup.backup_task_id == task.id).one_or_none()
+    if backup:
+        backup.status = "CANCELLED"
+        backup.completed_at = task.ended_at or datetime.now(UTC)
 
 
 def try_acquire_job_slot(db: Session, job: Job, task: BackupTask) -> bool:
@@ -117,6 +124,7 @@ def try_acquire_job_slot(db: Session, job: Job, task: BackupTask) -> bool:
         return True
     task.status = "CANCELLED"
     task.ended_at = datetime.now(UTC)
+    mark_task_backup_cancelled(db, task)
     db.commit()
     return False
 
@@ -405,6 +413,8 @@ def verify_backup(db: Session, backup: Backup) -> dict:
 
 
 def delete_backup_record(db: Session, backup: Backup) -> Backup:
+    if backup.backup_task and backup.backup_task.status in {"PENDING", "RUNNING"}:
+        raise AppError("VALIDATION_ERROR", "Backup is still running and cannot be deleted", status_code=400)
     backup.status = "DELETING"
     db.commit()
     if backup.object_key and backup.object_key != "pending":
