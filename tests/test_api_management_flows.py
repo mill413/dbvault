@@ -70,6 +70,30 @@ def test_auth_refresh_change_password_and_user_management(client, admin_headers)
     assert deleted.status_code == 200
 
 
+def test_user_optional_email_accepts_blank_values(client, admin_headers):
+    created = client.post(
+        "/api/v1/users",
+        headers=admin_headers,
+        json={
+            "username": "blank-email",
+            "password": "blank12345",
+            "display_name": "",
+            "email": "",
+            "role": "User",
+        },
+    )
+    updated = client.put(
+        f"/api/v1/users/{created.json()['id']}",
+        headers=admin_headers,
+        json={"email": ""},
+    )
+
+    assert created.status_code == 200
+    assert created.json()["email"] is None
+    assert updated.status_code == 200
+    assert updated.json()["email"] is None
+
+
 def test_database_storage_and_job_management(client, admin_headers, tmp_path):
     registry.register_database("mysql", JobBackupDriver)
     storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")

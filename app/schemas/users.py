@@ -8,6 +8,12 @@ from app.schemas.common import ORMModel, validate_password
 UserRole = Literal["Admin", "User"]
 
 
+def _empty_email_to_none(value: str | None) -> str | None:
+    if value == "":
+        return None
+    return value
+
+
 class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=64)
     password: str
@@ -21,12 +27,22 @@ class UserCreate(BaseModel):
     email: EmailStr | None = None
     role: UserRole = "User"
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str | None) -> str | None:
+        return _empty_email_to_none(v)
+
 
 class UserUpdate(BaseModel):
     display_name: str | None = None
     email: EmailStr | None = None
     role: UserRole | None = None
     status: str | None = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str | None) -> str | None:
+        return _empty_email_to_none(v)
 
 
 class UserRead(ORMModel):

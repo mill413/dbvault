@@ -160,12 +160,12 @@ const resetForm = reactive({
 
 const rules = {
   username: [{ required: true, message: t('user.usernameRequired'), trigger: 'blur' }],
-  password: [{ validator: createPasswordValidator(t), trigger: 'blur' }],
+  password: [{ required: true, validator: createPasswordValidator(t), trigger: 'blur' }],
   role: [{ required: true, message: t('user.roleRequired'), trigger: 'change' }],
 }
 
 const resetRules = {
-  password: [{ validator: createPasswordValidator(t), trigger: 'blur' }],
+  password: [{ required: true, validator: createPasswordValidator(t), trigger: 'blur' }],
 }
 
 const getRoleType = (role) => {
@@ -230,21 +230,19 @@ const handleSubmit = async () => {
 
   submitLoading.value = true
   try {
+    const payload = {
+      display_name: form.display_name || null,
+      email: form.email || null,
+      role: form.role,
+    }
     if (isEdit.value) {
-      await updateUser(form.id, {
-        display_name: form.display_name,
-        email: form.email,
-        role: form.role,
-        status: form.status,
-      })
+      await updateUser(form.id, { ...payload, status: form.status })
       ElMessage.success(t('common.updateSuccess'))
     } else {
       await createUser({
+        ...payload,
         username: form.username,
         password: form.password,
-        display_name: form.display_name,
-        email: form.email,
-        role: form.role,
       })
       ElMessage.success(t('common.createSuccess'))
     }
