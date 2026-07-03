@@ -44,6 +44,33 @@ def test_mysql_driver_uses_argument_array_and_env_password(monkeypatch, tmp_path
     assert backup_result.raw_file.read_text(encoding="utf-8") == "CREATE TABLE t(id int);"
 
 
+def test_mysql_driver_sanitizes_backup_output_filename(monkeypatch, tmp_path):
+    def fake_run(args, *, env=None, input_file=None, output_file=None, timeout_seconds=21600):
+        if output_file:
+            output_file.write(b"CREATE TABLE t(id int);")
+        from app.drivers.database.base import CommandResult
+
+        return CommandResult(True, 0, "8.4", "", 0.001)
+
+    monkeypatch.setattr("app.drivers.database.mysql.run_command", fake_run)
+    instance = DatabaseInstance(
+        name="mysql",
+        db_type="mysql",
+        host="127.0.0.1",
+        port=3306,
+        username="backup",
+        password_encrypted=encrypt_secret("secret"),
+        database_name="../orders",
+        environment="test",
+        tags=[],
+    )
+
+    backup_result = MySQLDriver(instance, "secret").backup(tmp_path)
+
+    assert backup_result.raw_file.parent.resolve() == tmp_path.resolve()
+    assert backup_result.raw_file.name == "orders.sql"
+
+
 def test_postgresql_driver_uses_pgpassword_and_restore_file(monkeypatch):
     calls = []
 
@@ -76,3 +103,30 @@ def test_postgresql_driver_uses_pgpassword_and_restore_file(monkeypatch):
     assert "--file" in calls[1]["args"]
     assert calls[0]["env"]["PGPASSWORD"] == "secret"
     assert calls[1]["env"]["PGPASSWORD"] == "secret"
+
+
+def test_postgresql_driver_sanitizes_backup_output_filename(monkeypatch, tmp_path):
+    def fake_run(args, *, env=None, input_file=None, output_file=None, timeout_seconds=21600):
+        if output_file:
+            output_file.write(b"CREATE TABLE t(id int);")
+        from app.drivers.database.base import CommandResult
+
+        return CommandResult(True, 0, "PostgreSQL 16", "", 0.001)
+
+    monkeypatch.setattr("app.drivers.database.postgresql.run_command", fake_run)
+    instance = DatabaseInstance(
+        name="postgres",
+        db_type="postgresql",
+        host="127.0.0.1",
+        port=5432,
+        username="backup",
+        password_encrypted=encrypt_secret("secret"),
+        database_name="../reports",
+        environment="test",
+        tags=[],
+    )
+
+    backup_result = PostgreSQLDriver(instance, "secret").backup(tmp_path)
+
+    assert backup_result.raw_file.parent.resolve() == tmp_path.resolve()
+    assert backup_result.raw_file.name == "reports.sql"

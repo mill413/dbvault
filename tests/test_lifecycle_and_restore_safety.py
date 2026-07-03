@@ -112,6 +112,27 @@ def test_new_instance_restore_requires_explicit_target(client, admin_headers, tm
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
+def test_unknown_restore_mode_is_rejected_before_task_creation(client, admin_headers, tmp_path):
+    registry.register_database("mysql", SuccessfulRestoreDriver)
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers, name="source")
+    backup_id = _upload_backup(client, admin_headers, database_id, storage_id)
+
+    response = client.post(
+        "/api/v1/restore/run",
+        headers=admin_headers,
+        json={
+            "backup_id": backup_id,
+            "target_database_id": database_id,
+            "restore_mode": "TYPO",
+        },
+    )
+    tasks = client.get("/api/v1/restore-tasks", headers=admin_headers)
+
+    assert response.status_code == 422
+    assert tasks.json()["total"] == 0
+
+
 def test_original_instance_restore_rejects_different_target(client, admin_headers, tmp_path):
     registry.register_database("mysql", SuccessfulRestoreDriver)
     storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")

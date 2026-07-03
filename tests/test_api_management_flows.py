@@ -175,17 +175,18 @@ def test_run_now_respects_job_concurrency(client, admin_headers, tmp_path):
     db = SessionLocal()
     try:
         created_by = db.get(Job, job_id).created_by
-        db.add(
-            BackupTask(
-                database_id=database_id,
-                storage_id=storage_id,
-                job_id=job_id,
-                status="RUNNING",
-                trigger_type="JOB",
-                config={},
-                created_by=created_by,
-            )
+        task = BackupTask(
+            database_id=database_id,
+            storage_id=storage_id,
+            job_id=job_id,
+            status="RUNNING",
+            trigger_type="JOB",
+            config={},
+            created_by=created_by,
         )
+        db.add(task)
+        db.flush()
+        db.get(Job, job_id).active_backup_task_id = task.id
         db.commit()
     finally:
         db.close()

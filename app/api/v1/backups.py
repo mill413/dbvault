@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
+from starlette.background import BackgroundTask
 
 from app.api.deps import require_permission
 from app.core.config import get_settings
@@ -31,6 +32,7 @@ from app.services.backup_service import (
 )
 from app.services.lifecycle_service import run_lifecycle_cleanup
 from app.services.storage_service import build_storage_driver
+from app.utils.paths import safe_filename, safe_join
 
 router = APIRouter()
 
@@ -158,9 +160,16 @@ def download_backup(
         raise AppError("RESOURCE_NOT_FOUND", "Backup not found", status_code=404)
     ensure_owner(backup, user, "Backup not found")
     storage = backup.storage
-    local_path = get_settings().backup_tmp_dir / f"download-{backup.id}-{backup.filename}"
+    settings = get_settings()
+    settings.backup_tmp_dir.mkdir(parents=True, exist_ok=True)
+    download_name = f"download-{backup.id}-{safe_filename(backup.filename)}"
+    local_path = safe_join(settings.backup_tmp_dir, download_name)
     build_storage_driver(storage).download(backup.object_key, local_path)
-    return FileResponse(local_path, filename=backup.filename)
+    return FileResponse(
+        local_path,
+        filename=safe_filename(backup.filename),
+        background=BackgroundTask(local_path.unlink, missing_ok=True),
+    )
 
 
 @router.post("/backups/{backup_id}/verify", response_model=VerifyResponse)

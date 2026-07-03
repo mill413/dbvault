@@ -7,7 +7,7 @@ from app.core.database import SessionLocal
 from app.core.errors import AppError
 from app.models import BackupTask, Job, User
 from app.schemas.backups import BackupRunRequest
-from app.services.backup_service import create_backup_task, run_backup_task
+from app.services.backup_service import create_backup_task, run_backup_task, try_acquire_job_slot
 
 _scheduler: BackgroundScheduler | None = None
 
@@ -70,9 +70,11 @@ def execute_job(job_id: int) -> None:
             job.skipped_count += 1
             db.commit()
             return
-        task = create_backup_task(db, payload, user, trigger_type="JOB")
-        task.job_id = job.id
-        db.commit()
+        task = create_backup_task(db, payload, user, trigger_type="JOB", job_id=job.id)
+        if not try_acquire_job_slot(db, job, task):
+            job.skipped_count += 1
+            db.commit()
+            return
         result = run_backup_task(db, task.id)
         job.last_run_at = result.started_at
         job.last_status = result.status

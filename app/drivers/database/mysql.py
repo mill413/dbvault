@@ -5,6 +5,7 @@ from time import monotonic
 from app.drivers.database.base import BackupDriver, BackupResult, elapsed_since
 from app.drivers.database.command import run_command
 from app.drivers.database.k8s import K8sConfig, run_kubectl_command
+from app.utils.paths import safe_filename
 
 
 class MySQLDriver(BackupDriver):
@@ -71,7 +72,7 @@ class MySQLDriver(BackupDriver):
 
     def backup(self, output_dir: Path, timeout_seconds: int = 21600) -> BackupResult:
         output_dir.mkdir(parents=True, exist_ok=True)
-        name = self.instance.database_name or "all-databases"
+        name = safe_filename(self.instance.database_name, "all-databases")
         target = output_dir / f"{name}.sql"
         if self._k8s_mode:
             k8s = self._k8s_config

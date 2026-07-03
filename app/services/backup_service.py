@@ -11,14 +11,14 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.ownership import ensure_owner
 from app.drivers.registry import registry
-from app.models import Backup, BackupTask, DatabaseInstance, Storage, User
+from app.models import Backup, BackupTask, DatabaseInstance, Job, Storage, User
 from app.services.alert_service import create_alert
 from app.services.audit_service import add_task_event
 from app.services.database_service import build_database_driver
 from app.services.lifecycle_service import calculate_expires_at
 from app.services.storage_service import build_storage_driver, get_default_storage, get_storage_usage
 from app.utils.checksum import file_checksum
-from app.utils.paths import build_backup_object_key
+from app.utils.paths import build_backup_object_key, safe_extension, safe_filename, safe_join
 
 
 def _check_storage_capacity(db: Session, storage: Storage, additional_bytes: int) -> None:
@@ -43,7 +43,13 @@ def _check_storage_capacity(db: Session, storage: Storage, additional_bytes: int
         )
 
 
-def create_backup_task(db: Session, payload, user: User, trigger_type: str = "MANUAL") -> BackupTask:
+def create_backup_task(
+    db: Session,
+    payload,
+    user: User,
+    trigger_type: str = "MANUAL",
+    job_id: int | None = None,
+) -> BackupTask:
     storage = db.get(Storage, payload.storage_id) if payload.storage_id else get_default_storage(db, user=user)
     if not storage or storage.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
@@ -57,6 +63,7 @@ def create_backup_task(db: Session, payload, user: User, trigger_type: str = "MA
         storage_id=storage.id,
         status="PENDING",
         trigger_type=trigger_type,
+        job_id=job_id,
         config=payload.model_dump(),
         created_by=user.id,
     )
@@ -86,6 +93,43 @@ def create_backup_task(db: Session, payload, user: User, trigger_type: str = "MA
     return task
 
 
+def _clear_stale_job_slot(db: Session, job: Job) -> None:
+    if not job.active_backup_task_id:
+        return
+    task = db.get(BackupTask, job.active_backup_task_id)
+    if task and task.status in {"PENDING", "RUNNING"}:
+        return
+    job.active_backup_task_id = None
+    db.commit()
+
+
+def try_acquire_job_slot(db: Session, job: Job, task: BackupTask) -> bool:
+    if job.allow_concurrent:
+        return True
+    _clear_stale_job_slot(db, job)
+    updated = (
+        db.query(Job)
+        .filter(Job.id == job.id, Job.active_backup_task_id.is_(None))
+        .update({Job.active_backup_task_id: task.id}, synchronize_session=False)
+    )
+    if updated:
+        db.commit()
+        return True
+    task.status = "CANCELLED"
+    task.ended_at = datetime.now(UTC)
+    db.commit()
+    return False
+
+
+def _release_job_slot(db: Session, task: BackupTask) -> None:
+    if not task.job_id:
+        return
+    job = db.get(Job, task.job_id)
+    if job and job.active_backup_task_id == task.id:
+        job.active_backup_task_id = None
+        db.commit()
+
+
 def run_backup_task(db: Session, task_id: int) -> BackupTask:
     task = db.get(BackupTask, task_id)
     if not task:
@@ -94,10 +138,26 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
         return task
     settings = get_settings()
     start = monotonic()
-    task.status = "RUNNING"
-    task.phase = "DUMPING"
-    task.progress = 5
-    task.started_at = datetime.now(UTC)
+    started_at = datetime.now(UTC)
+    claimed = (
+        db.query(BackupTask)
+        .filter(BackupTask.id == task_id, BackupTask.status == "PENDING")
+        .update(
+            {
+                BackupTask.status: "RUNNING",
+                BackupTask.phase: "DUMPING",
+                BackupTask.progress: 5,
+                BackupTask.started_at: started_at,
+            },
+            synchronize_session=False,
+        )
+    )
+    if not claimed:
+        db.rollback()
+        db.refresh(task)
+        return task
+    db.commit()
+    db.refresh(task)
     backup = db.query(Backup).filter(Backup.backup_task_id == task.id).first()
     if backup:
         backup.status = "RUNNING"
@@ -191,7 +251,7 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
             db.commit()
             db.refresh(backup)
 
-        extension = compressed_file.name.split(".", 1)[1] if "." in compressed_file.name else compressed_file.suffix
+        extension = safe_extension(compressed_file.name)
         object_key = build_backup_object_key(
             instance.db_type,
             instance.environment,
@@ -221,6 +281,7 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
         task.ended_at = datetime.now(UTC)
         db.commit()
         add_task_event(db, task_type="backup", task_id=task.id, level="INFO", message="Backup completed")
+        _release_job_slot(db, task)
         db.refresh(task)
         return task
     except Exception as exc:
@@ -252,6 +313,7 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
             message=task.error_message or "Backup task failed",
             dedupe_key=f"backup:{task.database_id}:{task.error_code}",
         )
+        _release_job_slot(db, task)
         return task
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
@@ -288,8 +350,8 @@ def upload_backup_file(
             backup_type="UPLOAD",
             status="UPLOADING",
             object_key="pending",
-            filename=file.filename or local_path.name,
-            file_format=(file.filename or "backup").split(".")[-1],
+            filename=safe_filename(file.filename, local_path.name),
+            file_format=safe_extension(file.filename, "backup"),
             size_bytes=local_path.stat().st_size,
             compressed=compression != "none",
             compression=compression if compression != "none" else None,
@@ -302,7 +364,7 @@ def upload_backup_file(
         db.add(backup)
         db.commit()
         db.refresh(backup)
-        extension = backup.filename.split(".", 1)[1] if "." in backup.filename else backup.file_format
+        extension = safe_extension(backup.filename or backup.file_format)
         object_key = build_backup_object_key(
             instance.db_type,
             instance.environment,
@@ -328,7 +390,8 @@ def verify_backup(db: Session, backup: Backup) -> dict:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
     settings = get_settings()
     settings.backup_tmp_dir.mkdir(parents=True, exist_ok=True)
-    local_path = settings.backup_tmp_dir / f"verify-{backup.id}-{backup.filename}"
+    verify_name = f"verify-{backup.id}-{safe_filename(backup.filename)}"
+    local_path = safe_join(settings.backup_tmp_dir, verify_name)
     try:
         build_storage_driver(storage).download(backup.object_key, local_path)
         actual = file_checksum(local_path, "sha256")

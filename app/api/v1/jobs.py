@@ -15,7 +15,7 @@ from app.schemas.backups import BackupRunRequest, TaskCreatedResponse
 from app.schemas.common import Message, Page
 from app.schemas.jobs import JobCreate, JobRead, JobUpdate
 from app.services.audit_service import create_audit_log
-from app.services.backup_service import create_backup_task, delete_backup_record, run_backup_task
+from app.services.backup_service import create_backup_task, delete_backup_record, run_backup_task, try_acquire_job_slot
 
 router = APIRouter()
 
@@ -206,9 +206,9 @@ def run_job_now(
         checksum=job.backup_config.get("checksum", ["sha256"]),
         retention=job.retention_policy,
     )
-    task = create_backup_task(db, payload, user, trigger_type="JOB")
-    task.job_id = job.id
-    db.commit()
+    task = create_backup_task(db, payload, user, trigger_type="JOB", job_id=job.id)
+    if not try_acquire_job_slot(db, job, task):
+        raise AppError("JOB_ALREADY_RUNNING", "Job already has a pending or running backup task", status_code=400)
     create_audit_log(db, user=user, action="job.run_now", resource_type="job", resource_id=job.id, request=request)
     if get_settings().run_background_tasks_inline:
         run_backup_task(db, task.id)

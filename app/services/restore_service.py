@@ -16,6 +16,14 @@ from app.services.audit_service import add_task_event
 from app.services.database_service import build_database_driver
 from app.services.storage_service import build_storage_driver
 from app.utils.checksum import file_checksum
+from app.utils.paths import safe_join
+
+RESTORE_MODES = {"NEW_INSTANCE", "ORIGINAL_INSTANCE"}
+
+
+def _validate_restore_mode(restore_mode: str) -> None:
+    if restore_mode not in RESTORE_MODES:
+        raise AppError("VALIDATION_ERROR", "Unsupported restore mode", status_code=400)
 
 
 def dry_run_restore(
@@ -25,6 +33,7 @@ def dry_run_restore(
     user: User,
     restore_mode: str = "NEW_INSTANCE",
 ) -> dict:
+    _validate_restore_mode(restore_mode)
     backup = db.get(Backup, backup_id)
     target = db.get(DatabaseInstance, target_database_id) if target_database_id else None
     storage = db.get(Storage, backup.storage_id) if backup else None
@@ -63,6 +72,7 @@ def dry_run_restore(
 
 
 def create_restore_task(db: Session, payload, user: User) -> RestoreTask:
+    _validate_restore_mode(payload.restore_mode)
     backup = db.get(Backup, payload.backup_id)
     if not backup or backup.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Backup not found", status_code=404)
@@ -111,6 +121,23 @@ def run_restore_task(db: Session, task_id: int) -> RestoreTask:
     task = db.get(RestoreTask, task_id)
     if not task:
         raise AppError("RESOURCE_NOT_FOUND", "Restore task not found", status_code=404)
+    claimed = (
+        db.query(RestoreTask)
+        .filter(RestoreTask.id == task_id, RestoreTask.status == "PENDING")
+        .update(
+            {
+                RestoreTask.status: "RUNNING",
+                RestoreTask.started_at: datetime.now(UTC),
+            },
+            synchronize_session=False,
+        )
+    )
+    if not claimed:
+        db.rollback()
+        db.refresh(task)
+        return task
+    db.commit()
+    db.refresh(task)
     if task.dry_run:
         task.status = "SUCCESS"
         task.progress = 100
@@ -119,10 +146,8 @@ def run_restore_task(db: Session, task_id: int) -> RestoreTask:
         return task
 
     start = monotonic()
-    task.status = "RUNNING"
     task.phase = "DOWNLOADING"
     task.progress = 10
-    task.started_at = datetime.now(UTC)
     db.commit()
     work_dir = Path(tempfile.mkdtemp(prefix=f"restore-{task.id}-", dir=settings.backup_tmp_dir))
     try:
@@ -131,7 +156,7 @@ def run_restore_task(db: Session, task_id: int) -> RestoreTask:
         target = db.get(DatabaseInstance, task.target_database_id) if task.target_database_id else None
         if not backup or not storage or not target:
             raise AppError("RESOURCE_NOT_FOUND", "Restore resource not found", status_code=404)
-        local_path = work_dir / backup.filename
+        local_path = safe_join(work_dir, backup.filename)
         build_storage_driver(storage).download(backup.object_key, local_path)
 
         task.phase = "VERIFYING"

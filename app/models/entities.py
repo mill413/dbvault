@@ -187,6 +187,7 @@ class Job(Base, TimestampMixin, SoftDeleteMixin):
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_status: Mapped[str | None] = mapped_column(String(32))
     skipped_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    active_backup_task_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
     database: Mapped[DatabaseInstance] = relationship()

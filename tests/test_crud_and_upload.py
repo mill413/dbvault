@@ -68,3 +68,24 @@ def test_upload_backup_verify_and_delete(client, admin_headers, tmp_path):
     assert audit.status_code == 200
     assert any(item["action"] == "backup.delete" for item in audit.json()["items"])
     assert list(Path(tmp_path / "backups").rglob("*"))  # storage directory was used
+
+
+def test_upload_backup_sanitizes_user_supplied_filename(client, admin_headers, tmp_path):
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers)
+
+    upload = client.post(
+        f"/api/v1/backups/upload?database_id={database_id}&storage_id={storage_id}&compression=none",
+        headers=admin_headers,
+        files={"file": ("../../evil.sql", b"CREATE TABLE t(id int);", "application/sql")},
+    )
+    assert upload.status_code == 200, upload.text
+
+    backup = client.get(f"/api/v1/backups/{upload.json()['backup_id']}", headers=admin_headers)
+    verify = client.post(f"/api/v1/backups/{upload.json()['backup_id']}/verify", headers=admin_headers)
+
+    assert backup.status_code == 200
+    assert backup.json()["filename"] == "evil.sql"
+    assert ".." not in backup.json()["object_key"]
+    assert verify.status_code == 200
+    assert verify.json()["ok"] is True

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -8,7 +9,7 @@ from app.schemas.common import ORMModel
 class RestoreRunRequest(BaseModel):
     backup_id: int
     target_database_id: int | None = None
-    restore_mode: str = "NEW_INSTANCE"
+    restore_mode: Literal["NEW_INSTANCE", "ORIGINAL_INSTANCE"] = "NEW_INSTANCE"
     dry_run: bool = False
     confirm_text: str | None = None
 
@@ -37,4 +38,3 @@ class RestoreTaskRead(ORMModel):
     created_at: datetime
     started_at: datetime | None = None
     ended_at: datetime | None = None
-
