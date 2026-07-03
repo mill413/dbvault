@@ -5,13 +5,13 @@
         <div class="card-header">
           <span>{{ $t('database.list') }}</span>
           <div class="header-filters">
-            <el-input v-model="searchName" :placeholder="$t('database.searchName')" clearable style="width: 180px" @input="fetchData" />
-            <el-select v-model="filterDbType" :placeholder="$t('database.type')" clearable style="width: 140px" @change="fetchData">
+            <el-input v-model="searchName" :placeholder="$t('database.searchName')" clearable style="width: 180px" @input="applyFilters" />
+            <el-select v-model="filterDbType" :placeholder="$t('database.type')" clearable style="width: 140px" @change="applyFilters">
               <el-option label="MySQL" value="mysql" />
               <el-option label="PostgreSQL" value="postgresql" />
               <el-option label="MariaDB" value="mariadb" />
             </el-select>
-            <el-select v-model="filterEnv" :placeholder="$t('database.env')" clearable style="width: 120px" @change="fetchData">
+            <el-select v-model="filterEnv" :placeholder="$t('database.env')" clearable style="width: 120px" @change="applyFilters">
               <el-option :label="$t('database.envProd')" value="prod" />
               <el-option :label="$t('database.envTest')" value="test" />
               <el-option :label="$t('database.envDev')" value="dev" />
@@ -34,7 +34,7 @@
         </el-table-column>
         <el-table-column prop="connection_type" :label="$t('database.connectionType')" width="120" sortable>
           <template #default="{ row }">
-            <el-tag :type="row.connection_type === 'kubernetes' ? 'warning' : ''" size="small">
+            <el-tag :type="row.connection_type === 'kubernetes' ? 'warning' : 'primary'" size="small">
               {{ row.connection_type === 'kubernetes' ? 'K8s' : $t('database.directConnection') }}
             </el-tag>
           </template>
@@ -507,6 +507,9 @@ const fetchData = async () => {
   loading.value = true
   try {
     const params = { page: page.value, page_size: pageSize.value }
+    if (searchName.value) {
+      params.name = searchName.value
+    }
     if (filterDbType.value) {
       params.db_type = filterDbType.value
     }
@@ -514,18 +517,18 @@ const fetchData = async () => {
       params.environment = filterEnv.value
     }
     const response = await getDatabases(params)
-    let items = response.data.items || []
-    if (searchName.value) {
-      const keyword = searchName.value.toLowerCase()
-      items = items.filter((item) => item.name.toLowerCase().includes(keyword))
-    }
-    databases.value = items
+    databases.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error) {
     console.error('Failed to fetch databases:', error)
   } finally {
     loading.value = false
   }
+}
+
+const applyFilters = () => {
+  page.value = 1
+  fetchData()
 }
 
 const resetForm = () => {

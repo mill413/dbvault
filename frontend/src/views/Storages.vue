@@ -5,11 +5,11 @@
         <div class="card-header">
           <span>{{ $t('storage.title') }}</span>
           <div class="header-filters">
-            <el-select v-model="filterType" :placeholder="$t('storage.typeFilter')" clearable style="width: 140px">
+            <el-select v-model="filterType" :placeholder="$t('storage.typeFilter')" clearable style="width: 140px" @change="applyFilters">
               <el-option label="Local" value="local" />
               <el-option label="S3" value="s3" />
             </el-select>
-            <el-select v-model="filterStatus" :placeholder="$t('storage.statusFilter')" clearable style="width: 120px">
+            <el-select v-model="filterStatus" :placeholder="$t('storage.statusFilter')" clearable style="width: 120px" @change="applyFilters">
               <el-option label="ACTIVE" value="ACTIVE" />
               <el-option label="INACTIVE" value="INACTIVE" />
             </el-select>
@@ -21,7 +21,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredStorages" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="storages" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="name" :label="$t('storage.name')" sortable />
         <el-table-column prop="storage_type" :label="$t('storage.type')" width="120" sortable>
@@ -197,21 +197,17 @@ const onTypeChange = () => {
   formRef.value?.clearValidate()
 }
 
-const filteredStorages = computed(() => {
-  let result = storages.value
-  if (filterType.value) {
-    result = result.filter(item => item.storage_type === filterType.value)
-  }
-  if (filterStatus.value) {
-    result = result.filter(item => item.status === filterStatus.value)
-  }
-  return result
-})
-
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await getStorages({ page: page.value, page_size: pageSize.value })
+    const params = { page: page.value, page_size: pageSize.value }
+    if (filterType.value) {
+      params.storage_type = filterType.value
+    }
+    if (filterStatus.value) {
+      params.status = filterStatus.value
+    }
+    const response = await getStorages(params)
     storages.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error) {
@@ -219,6 +215,11 @@ const fetchData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const applyFilters = () => {
+  page.value = 1
+  fetchData()
 }
 
 const showCreateDialog = () => {

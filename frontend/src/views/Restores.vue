@@ -5,7 +5,7 @@
         <div class="card-header">
           <span>{{ $t('restore.title') }}</span>
           <div class="header-filters">
-            <el-select v-model="filterStatus" :placeholder="$t('restore.statusFilter')" clearable style="width: 140px" @change="fetchData">
+            <el-select v-model="filterStatus" :placeholder="$t('restore.statusFilter')" clearable style="width: 140px" @change="applyFilters">
               <el-option label="完成" value="SUCCESS" />
               <el-option label="运行中" value="RUNNING" />
               <el-option label="失败" value="FAILED" />
@@ -249,18 +249,23 @@ const availableTargetDatabases = computed(() => {
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await getRestoreTasks({ page: page.value, page_size: pageSize.value })
-    let items = response.data.items || []
+    const params = { page: page.value, page_size: pageSize.value }
     if (filterStatus.value) {
-      items = items.filter((item) => item.status === filterStatus.value)
+      params.status = filterStatus.value
     }
-    restoreTasks.value = items
+    const response = await getRestoreTasks(params)
+    restoreTasks.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error) {
     console.error('Failed to fetch restore tasks:', error)
   } finally {
     loading.value = false
   }
+}
+
+const applyFilters = () => {
+  page.value = 1
+  fetchData()
 }
 
 const fetchDependencies = async () => {

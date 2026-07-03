@@ -5,12 +5,12 @@
         <div class="card-header">
           <span>{{ $t('user.title') }}</span>
           <div class="header-filters">
-            <el-input v-model="searchUsername" :placeholder="$t('user.searchUsername')" clearable style="width: 180px" />
-            <el-select v-model="filterRole" :placeholder="$t('user.roleFilter')" clearable style="width: 130px">
+            <el-input v-model="searchUsername" :placeholder="$t('user.searchUsername')" clearable style="width: 180px" @input="applyFilters" />
+            <el-select v-model="filterRole" :placeholder="$t('user.roleFilter')" clearable style="width: 130px" @change="applyFilters">
               <el-option label="Admin" value="Admin" />
               <el-option label="User" value="User" />
             </el-select>
-            <el-select v-model="filterStatus" :placeholder="$t('user.statusFilter')" clearable style="width: 130px">
+            <el-select v-model="filterStatus" :placeholder="$t('user.statusFilter')" clearable style="width: 130px" @change="applyFilters">
               <el-option label="ACTIVE" value="ACTIVE" />
               <el-option label="DISABLED" value="DISABLED" />
             </el-select>
@@ -22,7 +22,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredUsers" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="users" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="username" :label="$t('login.username')" min-width="120" sortable />
         <el-table-column prop="display_name" :label="$t('user.displayName')" min-width="130" sortable />
@@ -119,7 +119,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -178,25 +178,20 @@ const formatTime = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
 }
 
-const filteredUsers = computed(() => {
-  let result = users.value
-  if (searchUsername.value) {
-    const keyword = searchUsername.value.toLowerCase()
-    result = result.filter((u) => (u.username || '').toLowerCase().includes(keyword))
-  }
-  if (filterRole.value) {
-    result = result.filter((u) => u.role === filterRole.value)
-  }
-  if (filterStatus.value) {
-    result = result.filter((u) => u.status === filterStatus.value)
-  }
-  return result
-})
-
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await getUsers({ page: page.value, page_size: pageSize.value })
+    const params = { page: page.value, page_size: pageSize.value }
+    if (searchUsername.value) {
+      params.username = searchUsername.value
+    }
+    if (filterRole.value) {
+      params.role = filterRole.value
+    }
+    if (filterStatus.value) {
+      params.status = filterStatus.value
+    }
+    const response = await getUsers(params)
     users.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error) {
@@ -204,6 +199,11 @@ const fetchData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const applyFilters = () => {
+  page.value = 1
+  fetchData()
 }
 
 const showCreateDialog = () => {

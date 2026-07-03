@@ -259,7 +259,7 @@ onMounted(async () => {
   }
 
   try {
-    const dbsRes = await getDatabases({ page_size: 999 })
+    const dbsRes = await getDatabases({ page_size: 100 })
     const dbs = dbsRes.data.items || []
     const map = {}
     dbs.forEach(db => { map[db.id] = db.name })

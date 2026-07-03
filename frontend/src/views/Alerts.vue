@@ -5,14 +5,14 @@
         <div class="card-header">
           <span>{{ $t('alert.title') }}</span>
           <div class="header-filters">
-            <el-input v-model="searchTitle" :placeholder="$t('alert.searchTitle')" clearable style="width: 180px" />
-            <el-select v-model="filterSeverity" :placeholder="$t('alert.severityFilter')" clearable style="width: 130px">
+            <el-input v-model="searchTitle" :placeholder="$t('alert.searchTitle')" clearable style="width: 180px" @input="applyFilters" />
+            <el-select v-model="filterSeverity" :placeholder="$t('alert.severityFilter')" clearable style="width: 130px" @change="applyFilters">
               <el-option label="严重" value="CRITICAL" />
               <el-option label="错误" value="ERROR" />
               <el-option label="警告" value="WARNING" />
               <el-option label="信息" value="INFO" />
             </el-select>
-            <el-select v-model="statusFilter" :placeholder="$t('alert.statusFilter')" clearable style="width: 130px">
+            <el-select v-model="statusFilter" :placeholder="$t('alert.statusFilter')" clearable style="width: 130px" @change="applyFilters">
               <el-option label="OPEN" value="OPEN" />
               <el-option label="RESOLVED" value="RESOLVED" />
             </el-select>
@@ -20,7 +20,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredAlerts" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="alerts" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="title" :label="$t('dashboard.title')" width="200" sortable />
         <el-table-column prop="alert_type" :label="$t('alert.alertType')" width="120" sortable />
@@ -68,7 +68,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
@@ -94,22 +94,16 @@ const formatTime = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
 }
 
-const filteredAlerts = computed(() => {
-  let result = alerts.value
-  if (searchTitle.value) {
-    const keyword = searchTitle.value.toLowerCase()
-    result = result.filter((a) => (a.title || '').toLowerCase().includes(keyword))
-  }
-  if (filterSeverity.value) {
-    result = result.filter((a) => a.severity === filterSeverity.value)
-  }
-  return result
-})
-
 const fetchData = async () => {
   loading.value = true
   try {
     const params = { page: page.value, page_size: pageSize.value }
+    if (searchTitle.value) {
+      params.title = searchTitle.value
+    }
+    if (filterSeverity.value) {
+      params.severity = filterSeverity.value
+    }
     if (statusFilter.value) {
       params.status = statusFilter.value
     }
@@ -121,6 +115,11 @@ const fetchData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const applyFilters = () => {
+  page.value = 1
+  fetchData()
 }
 
 const handleResolve = async (row) => {

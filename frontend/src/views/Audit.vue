@@ -5,8 +5,8 @@
         <div class="card-header">
           <span>{{ $t('audit.title') }}</span>
           <div class="header-filters">
-            <el-input v-model="searchAction" :placeholder="$t('audit.searchAction')" clearable style="width: 180px" />
-            <el-select v-model="filterResult" :placeholder="$t('audit.resultFilter')" clearable style="width: 120px">
+            <el-input v-model="searchAction" :placeholder="$t('audit.searchAction')" clearable style="width: 180px" @input="applyFilters" />
+            <el-select v-model="filterResult" :placeholder="$t('audit.resultFilter')" clearable style="width: 120px" @change="applyFilters">
               <el-option label="成功" value="success" />
               <el-option label="失败" value="failure" />
             </el-select>
@@ -14,7 +14,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredLogs" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="logs" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="action" :label="$t('audit.action')" width="180" sortable />
         <el-table-column prop="actor_user_id" :label="$t('audit.actor')" width="100" sortable />
@@ -48,7 +48,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import dayjs from 'dayjs'
 import { getAuditLogs } from '../api/common'
 
@@ -65,24 +65,18 @@ const formatTime = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
 }
 
-const filteredLogs = computed(() => {
-  let result = logs.value
-  if (searchAction.value) {
-    const keyword = searchAction.value.toLowerCase()
-    result = result.filter((l) => (l.action || '').toLowerCase().includes(keyword))
-  }
-  if (filterResult.value) {
-    result = result.filter((l) => l.result === filterResult.value)
-  }
-  return result
-})
-
 const fetchData = async () => {
   loading.value = true
   try {
     const params = {
       page: page.value,
       page_size: pageSize.value,
+    }
+    if (searchAction.value) {
+      params.action = searchAction.value
+    }
+    if (filterResult.value) {
+      params.result = filterResult.value
     }
 
     const response = await getAuditLogs(params)
@@ -93,6 +87,11 @@ const fetchData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const applyFilters = () => {
+  page.value = 1
+  fetchData()
 }
 
 onMounted(fetchData)
