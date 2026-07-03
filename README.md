@@ -199,6 +199,15 @@ gh release download --repo mill413/dbvault -p '*.tar.gz'
 # Load images
 docker load -i dbvault-images-*.tar.gz
 
+# Configure required production secrets
+cp .env.example .env
+python - <<'PY'
+from cryptography.fernet import Fernet
+print(Fernet.generate_key().decode())
+PY
+# Put the generated value in DBVAULT_ENCRYPTION_KEY and set strong
+# DBVAULT_JWT_SECRET / DBVAULT_POSTGRES_PASSWORD values.
+
 # Start the stack
 docker compose -f docker/docker-compose.yml up -d
 ```
@@ -291,6 +300,7 @@ All configuration is managed via environment variables (prefix `DBVAULT_`). See 
 | --- | --- | --- |
 | `DBVAULT_JWT_SECRET` | `change-me-in-production` | **Required in production.** Secret key for JWT signing |
 | `DBVAULT_ENCRYPTION_KEY` | *(derived from JWT secret in dev)* | Fernet key for encrypting stored credentials; required when `DBVAULT_ENV=prod` |
+| `DBVAULT_POSTGRES_PASSWORD` | `change-me-in-production` | Password used by the bundled PostgreSQL service in Docker Compose |
 | `DBVAULT_ENABLE_REGISTRATION` | `false` | Allow user self-registration |
 | `DBVAULT_INITIAL_ADMIN_USERNAME` | `admin` | Default admin username on first startup |
 | `DBVAULT_INITIAL_ADMIN_PASSWORD` | `admin123456789` | Default admin password (min 12 chars) |

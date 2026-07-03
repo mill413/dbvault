@@ -199,6 +199,15 @@ gh release download --repo mill413/dbvault -p '*.tar.gz'
 # 加载镜像
 docker load -i dbvault-images-*.tar.gz
 
+# 配置生产必需密钥
+cp .env.example .env
+python - <<'PY'
+from cryptography.fernet import Fernet
+print(Fernet.generate_key().decode())
+PY
+# 将生成值写入 DBVAULT_ENCRYPTION_KEY，并设置强随机的
+# DBVAULT_JWT_SECRET / DBVAULT_POSTGRES_PASSWORD。
+
 # 启动服务
 docker compose -f docker/docker-compose.yml up -d
 ```
@@ -291,6 +300,7 @@ alembic downgrade -1
 | --- | --- | --- |
 | `DBVAULT_JWT_SECRET` | `change-me-in-production` | **生产环境必填。** JWT 签名密钥 |
 | `DBVAULT_ENCRYPTION_KEY` | *（开发环境从 JWT secret 派生）* | 用于加密存储凭据的 Fernet 密钥；`DBVAULT_ENV=prod` 时必须显式配置 |
+| `DBVAULT_POSTGRES_PASSWORD` | `change-me-in-production` | Docker Compose 内置 PostgreSQL 服务密码 |
 | `DBVAULT_ENABLE_REGISTRATION` | `false` | 是否允许用户自助注册 |
 | `DBVAULT_INITIAL_ADMIN_USERNAME` | `admin` | 首次启动时的默认管理员用户名 |
 | `DBVAULT_INITIAL_ADMIN_PASSWORD` | `admin123456789` | 首次启动时的默认管理员密码（最少 12 位） |
