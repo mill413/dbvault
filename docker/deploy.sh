@@ -97,14 +97,79 @@ cd "$SCRIPT_DIR"
 
 export COMPOSE_PROJECT_NAME="$PROJECT_NAME"
 
+set_compose_placeholder_env() {
+    export DBVAULT_POSTGRES_PASSWORD="${DBVAULT_POSTGRES_PASSWORD:-unused-for-compose-down}"
+    export DBVAULT_JWT_SECRET="${DBVAULT_JWT_SECRET:-unused-for-compose-down}"
+    export DBVAULT_ENCRYPTION_KEY="${DBVAULT_ENCRYPTION_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}"
+}
+
+print_secret_help() {
+    echo ""
+    echo "请使用强随机密钥部署，例如："
+    echo "  export DBVAULT_POSTGRES_PASSWORD='请替换为强密码'"
+    echo "  export DBVAULT_JWT_SECRET='请替换为强随机字符串'"
+    echo "  export DBVAULT_ENCRYPTION_KEY=\"\$(python3 -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')\""
+    echo "  $0 -b"
+}
+
+require_env() {
+    local name="$1"
+    if [ -z "${!name:-}" ]; then
+        echo "错误: 缺少环境变量 $name"
+        return 1
+    fi
+}
+
+validate_encryption_key() {
+    python3 - "$DBVAULT_ENCRYPTION_KEY" <<'PY'
+import base64
+import binascii
+import sys
+
+key = sys.argv[1].encode("utf-8")
+try:
+    decoded = base64.urlsafe_b64decode(key)
+except (binascii.Error, ValueError):
+    sys.exit(1)
+if len(decoded) != 32:
+    sys.exit(1)
+PY
+}
+
+validate_deploy_env() {
+    local ok=true
+    require_env DBVAULT_POSTGRES_PASSWORD || ok=false
+    require_env DBVAULT_JWT_SECRET || ok=false
+    require_env DBVAULT_ENCRYPTION_KEY || ok=false
+
+    if [ "$ok" != true ]; then
+        print_secret_help
+        exit 1
+    fi
+
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "错误: 需要 python3 来校验 DBVAULT_ENCRYPTION_KEY。"
+        exit 1
+    fi
+
+    if ! validate_encryption_key; then
+        echo "错误: DBVAULT_ENCRYPTION_KEY 必须是 32 字节 URL-safe base64 编码的 Fernet 密钥。"
+        echo "当前值无法用于生产环境加密。"
+        print_secret_help
+        exit 1
+    fi
+}
+
 if [ "$DOWN_V" = true ]; then
     echo "停止并删除所有容器和数据卷..."
+    set_compose_placeholder_env
     docker compose down -v
     exit 0
 fi
 
 if [ "$DOWN" = true ]; then
     echo "停止并删除所有容器..."
+    set_compose_placeholder_env
     docker compose down
     exit 0
 fi
@@ -128,6 +193,8 @@ if [ "$EXPORT" = true ]; then
     fi
     exit 0
 fi
+
+validate_deploy_env
 
 if [ "$BUILD" = true ]; then
     echo "构建镜像..."

@@ -202,8 +202,10 @@ docker load -i dbvault-images-*.tar.gz
 # Configure required production secrets
 cp .env.example .env
 python - <<'PY'
-from cryptography.fernet import Fernet
-print(Fernet.generate_key().decode())
+import base64
+import os
+
+print(base64.urlsafe_b64encode(os.urandom(32)).decode())
 PY
 # Put the generated value in DBVAULT_ENCRYPTION_KEY and set strong
 # DBVAULT_JWT_SECRET / DBVAULT_POSTGRES_PASSWORD values.

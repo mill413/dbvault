@@ -202,8 +202,10 @@ docker load -i dbvault-images-*.tar.gz
 # 配置生产必需密钥
 cp .env.example .env
 python - <<'PY'
-from cryptography.fernet import Fernet
-print(Fernet.generate_key().decode())
+import base64
+import os
+
+print(base64.urlsafe_b64encode(os.urandom(32)).decode())
 PY
 # 将生成值写入 DBVAULT_ENCRYPTION_KEY，并设置强随机的
 # DBVAULT_JWT_SECRET / DBVAULT_POSTGRES_PASSWORD。
