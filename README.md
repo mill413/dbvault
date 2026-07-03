@@ -402,6 +402,9 @@ pytest tests/test_auth_rbac.py
 
 # Run with verbose output
 pytest -v
+
+# Run Docker-backed integration tests for real MySQL, PostgreSQL, and MinIO services
+scripts/run_integration_tests.sh
 ```
 
 ### Code Quality

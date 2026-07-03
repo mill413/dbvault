@@ -402,6 +402,9 @@ pytest tests/test_auth_rbac.py
 
 # 详细输出模式
 pytest -v
+
+# 运行基于 Docker 的 MySQL、PostgreSQL 和 MinIO 真实集成测试
+scripts/run_integration_tests.sh
 ```
 
 ### 代码质量
