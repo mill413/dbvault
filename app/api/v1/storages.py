@@ -12,7 +12,14 @@ from app.models import Job, Storage, User
 from app.schemas.common import Message, Page
 from app.schemas.storages import StorageCapacityResponse, StorageCreate, StorageRead, StorageTestResponse, StorageUpdate
 from app.services.audit_service import create_audit_log
-from app.services.storage_service import build_storage_driver, create_storage, encrypt_config, get_storage_usage
+from app.services.storage_service import (
+    build_storage_driver,
+    create_storage,
+    encrypt_config,
+    ensure_local_storage_root_allowed,
+    ensure_storage_name_available,
+    get_storage_usage,
+)
 
 router = APIRouter()
 
@@ -20,11 +27,18 @@ router = APIRouter()
 @router.get("", response_model=Page[StorageRead])
 def list_storages(
     pagination: Pagination = Depends(pagination_params),
+    storage_type: str | None = None,
+    status: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("storage:read")),
 ):
     query = db.query(Storage).filter(Storage.deleted_at.is_(None))
-    query = owner_filter(query, Storage, user).order_by(Storage.id.asc())
+    query = owner_filter(query, Storage, user)
+    if storage_type:
+        query = query.filter(Storage.storage_type == storage_type.lower())
+    if status:
+        query = query.filter(Storage.status == status)
+    query = query.order_by(Storage.id.asc())
     total = query.count()
     return {
         "items": query.offset((pagination.page - 1) * pagination.page_size).limit(pagination.page_size).all(),
@@ -112,6 +126,10 @@ def update_storage(
     ensure_owner(item, user, "Storage not found")
     data = payload.model_dump(exclude_unset=True)
     config = data.pop("config", None)
+    if "name" in data:
+        ensure_storage_name_available(db, data["name"], exclude_id=item.id)
+    if config is not None:
+        ensure_local_storage_root_allowed(item.storage_type, config, user)
     for key, value in data.items():
         setattr(item, key, value)
     if config is not None:

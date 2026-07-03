@@ -71,6 +71,20 @@ def _write_owner(path: Path, user: User) -> None:
     _metadata_path(path).write_text(json.dumps({"created_by": user.id}), encoding="utf-8")
 
 
+def _safe_load_kubeconfig(content: str) -> dict:
+    try:
+        data = yaml.safe_load(content)
+    except yaml.YAMLError as e:
+        raise AppError("INVALID_INPUT", f"Invalid YAML content: {e}", status_code=400) from e
+    if not isinstance(data, dict):
+        raise AppError("INVALID_INPUT", "Invalid kubeconfig content", status_code=400)
+    for user_entry in data.get("users") or []:
+        user_config = user_entry.get("user") if isinstance(user_entry, dict) else None
+        if isinstance(user_config, dict) and "exec" in user_config:
+            raise AppError("INVALID_INPUT", "Kubeconfig exec plugins are not allowed", status_code=400)
+    return data
+
+
 def _ensure_kubeconfig_owner(path: Path, user: User) -> None:
     if is_admin(user):
         return
@@ -107,10 +121,7 @@ def create_kubeconfig(
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in payload.name)
     if not safe_name:
         raise AppError("INVALID_INPUT", "Invalid kubeconfig name", status_code=400)
-    try:
-        yaml.safe_load(payload.content)
-    except yaml.YAMLError as e:
-        raise AppError("INVALID_INPUT", f"Invalid YAML content: {e}", status_code=400) from e
+    _safe_load_kubeconfig(payload.content)
     target = KUBECONFIG_DIR / f"{safe_name}.yaml"
     if target.exists():
         raise AppError("ALREADY_EXISTS", f"Kubeconfig '{safe_name}' already exists", status_code=409)

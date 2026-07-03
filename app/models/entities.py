@@ -32,7 +32,7 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    username: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(128))
     email: Mapped[str | None] = mapped_column(String(255))
@@ -47,7 +47,7 @@ class DatabaseInstance(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "database_instances"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     db_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     host: Mapped[str] = mapped_column(String(255), nullable=False)
     port: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -69,7 +69,7 @@ class Storage(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "storages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     storage_type: Mapped[str] = mapped_column(String(32), nullable=False)
     config_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

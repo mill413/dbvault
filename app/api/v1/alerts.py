@@ -19,6 +19,8 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 def list_alerts(
     pagination: Pagination = Depends(pagination_params),
     status: str | None = None,
+    severity: str | None = None,
+    title: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:read")),
 ):
@@ -26,6 +28,10 @@ def list_alerts(
     query = alert_owner_filter(query, user)
     if status:
         query = query.filter(Alert.status == status)
+    if severity:
+        query = query.filter(Alert.severity == severity)
+    if title:
+        query = query.filter(Alert.title.ilike(f"%{title}%"))
     total = query.count()
     items = (
         query.order_by(Alert.created_at.desc())

@@ -11,6 +11,7 @@ from app.core.logging import configure_logging
 from app.drivers.bootstrap import register_builtin_drivers
 from app.scheduler.service import shutdown_scheduler, start_scheduler
 from app.services.auth_service import ensure_initial_admin
+from app.services.task_recovery import recover_interrupted_tasks
 
 
 @asynccontextmanager
@@ -20,6 +21,7 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         ensure_initial_admin(db)
+        recover_interrupted_tasks(db)
     finally:
         db.close()
     if get_settings().scheduler_enabled:

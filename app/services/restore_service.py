@@ -26,6 +26,22 @@ def _validate_restore_mode(restore_mode: str) -> None:
         raise AppError("VALIDATION_ERROR", "Unsupported restore mode", status_code=400)
 
 
+def _target_matches_backup_type(backup: Backup | None, target: DatabaseInstance | None) -> bool:
+    if not backup or not target or not backup.database:
+        return False
+    return backup.database.db_type == target.db_type
+
+
+def _target_has_active_restore(db: Session, target_database_id: int, exclude_task_id: int | None = None) -> bool:
+    query = db.query(RestoreTask).filter(
+        RestoreTask.target_database_id == target_database_id,
+        RestoreTask.status.in_(["PENDING", "RUNNING"]),
+    )
+    if exclude_task_id is not None:
+        query = query.filter(RestoreTask.id != exclude_task_id)
+    return query.first() is not None
+
+
 def dry_run_restore(
     db: Session,
     backup_id: int,
@@ -36,6 +52,9 @@ def dry_run_restore(
     _validate_restore_mode(restore_mode)
     backup = db.get(Backup, backup_id)
     target = db.get(DatabaseInstance, target_database_id) if target_database_id else None
+    effective_target = target
+    if restore_mode == "ORIGINAL_INSTANCE" and backup is not None and target_database_id is None:
+        effective_target = backup.database
     storage = db.get(Storage, backup.storage_id) if backup else None
     backup_owner_ok = False
     target_owner_ok = False
@@ -63,6 +82,10 @@ def dry_run_restore(
         "backup_available": bool(backup and backup_owner_ok and backup.status == "AVAILABLE"),
         "storage_exists": storage is not None and backup_owner_ok,
         "target_exists": target_owner_ok,
+        "target_type_matches": bool(target_owner_ok and _target_matches_backup_type(backup, effective_target)),
+        "target_not_busy": bool(
+            effective_target and not _target_has_active_restore(db, effective_target.id)
+        ),
     }
     return {
         "ok": all(checks.values()),
@@ -95,6 +118,14 @@ def create_restore_task(db: Session, payload, user: User) -> RestoreTask:
     if not target or target.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Target database not found", status_code=404)
     ensure_owner(target, user, "Target database not found")
+    if backup.database is None or backup.database.db_type != target.db_type:
+        raise AppError("VALIDATION_ERROR", "Target database type must match backup source type", status_code=400)
+    if _target_has_active_restore(db, target.id):
+        raise AppError(
+            "RESTORE_TARGET_BUSY",
+            "Target database already has a pending or running restore",
+            status_code=400,
+        )
     if payload.restore_mode == "ORIGINAL_INSTANCE":
         expected = f"restore {backup.database.name}" if backup.database else f"restore {backup.database_id}"
         if payload.confirm_text != expected:

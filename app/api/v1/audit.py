@@ -14,10 +14,17 @@ router = APIRouter()
 @router.get("/audit-logs", response_model=Page[AuditLogRead])
 def list_audit_logs(
     pagination: Pagination = Depends(pagination_params),
+    action: str | None = None,
+    result: str | None = None,
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("audit:read")),
 ):
-    query = db.query(AuditLog).order_by(AuditLog.created_at.desc())
+    query = db.query(AuditLog)
+    if action:
+        query = query.filter(AuditLog.action.ilike(f"%{action}%"))
+    if result:
+        query = query.filter(AuditLog.result == result)
+    query = query.order_by(AuditLog.created_at.desc())
     total = query.count()
     return {
         "items": query.offset((pagination.page - 1) * pagination.page_size).limit(pagination.page_size).all(),

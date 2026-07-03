@@ -21,7 +21,7 @@ def create_owned_storage(client, headers, name: str) -> int:
         json={
             "name": name,
             "storage_type": "local",
-            "config": {"root_path": str(TEST_ROOT / name)},
+            "config": {"root_path": str(TEST_ROOT / "backups" / name)},
             "is_default": True,
         },
     )
@@ -149,3 +149,63 @@ users: []
     assert bob_delete.status_code == 200
     assert client.delete("/api/v1/kubeconfigs/bob-cluster", headers=alice_headers).status_code == 404
     assert {item["action"] for item in audit.json()["items"]} >= {"kubeconfig.create", "kubeconfig.delete"}
+
+
+def test_kubeconfig_exec_plugins_and_cross_owner_database_references_are_rejected(client, admin_headers):
+    alice_headers = create_user_and_headers(client, admin_headers, "alice")
+    bob_headers = create_user_and_headers(client, admin_headers, "bob")
+    safe_content = """
+apiVersion: v1
+kind: Config
+clusters: []
+contexts: []
+users: []
+"""
+    unsafe_content = """
+apiVersion: v1
+kind: Config
+clusters: []
+contexts: []
+users:
+  - name: attacker
+    user:
+      exec:
+        command: sh
+        args: ["-c", "id"]
+"""
+
+    unsafe = client.post(
+        "/api/v1/kubeconfigs",
+        headers=alice_headers,
+        json={"name": "unsafe", "content": unsafe_content},
+    )
+    bob_config = client.post(
+        "/api/v1/kubeconfigs",
+        headers=bob_headers,
+        json={"name": "bob-owned", "content": safe_content},
+    )
+    cross_owner_database = client.post(
+        "/api/v1/databases",
+        headers=alice_headers,
+        json={
+            "name": "alice-k8s-db",
+            "db_type": "mysql",
+            "host": "ignored",
+            "port": 3306,
+            "username": "backup",
+            "password": "database-password",
+            "database_name": "orders",
+            "environment": "test",
+            "connection_type": "kubernetes",
+            "k8s_config": {
+                "namespace": "default",
+                "pod_name": "mysql-0",
+                "kubeconfig": bob_config.json()["path"],
+            },
+        },
+    )
+
+    assert unsafe.status_code == 400
+    assert unsafe.json()["error"]["code"] == "INVALID_INPUT"
+    assert bob_config.status_code == 200, bob_config.text
+    assert cross_owner_database.status_code == 404

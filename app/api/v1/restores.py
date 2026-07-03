@@ -78,11 +78,15 @@ def run_restore(
 @router.get("/restore-tasks", response_model=Page[RestoreTaskRead])
 def list_restore_tasks(
     pagination: Pagination = Depends(pagination_params),
+    status: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:read")),
 ):
     query = db.query(RestoreTask)
-    query = owner_filter(query, RestoreTask, user).order_by(RestoreTask.created_at.desc())
+    query = owner_filter(query, RestoreTask, user)
+    if status:
+        query = query.filter(RestoreTask.status == status)
+    query = query.order_by(RestoreTask.created_at.desc())
     total = query.count()
     return {
         "items": query.offset((pagination.page - 1) * pagination.page_size).limit(pagination.page_size).all(),

@@ -5,11 +5,15 @@ from app.drivers.database.k8s import K8sConfig, run_kubectl_command
 
 def test_run_kubectl_command_resolves_label_selector_before_exec(monkeypatch):
     calls = []
+    kwargs_seen = []
 
     def fake_run(args, **kwargs):
         calls.append(args)
+        kwargs_seen.append(kwargs)
         if "get" in args:
             return subprocess.CompletedProcess(args, 0, stdout=b"mysql-0", stderr=b"")
+        if "cat >" in " ".join(args) or "rm" in args:
+            return subprocess.CompletedProcess(args, 0, stdout=b"", stderr=b"")
         return subprocess.CompletedProcess(
             args,
             1,
@@ -39,7 +43,10 @@ def test_run_kubectl_command_resolves_label_selector_before_exec(monkeypatch):
         "jsonpath={.items[0].metadata.name}",
     ]
     assert calls[1][:5] == ["kubectl", "-n", "db", "exec", "mysql-0"]
-    assert "-l" not in calls[1]
+    assert calls[2][:5] == ["kubectl", "-n", "db", "exec", "mysql-0"]
+    assert "-l" not in calls[2]
+    assert all("secret" not in " ".join(call) for call in calls)
+    assert all("env" not in kwargs for kwargs in kwargs_seen)
 
 
 def test_run_kubectl_command_reports_missing_pod(monkeypatch):

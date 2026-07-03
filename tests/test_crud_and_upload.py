@@ -3,7 +3,8 @@ from pathlib import Path
 from app.core.database import SessionLocal
 from app.models import Storage
 from app.services.storage_service import decrypt_config
-from tests.conftest import create_database_instance, create_local_storage
+from tests.conftest import TEST_ROOT, create_database_instance, create_local_storage
+from tests.test_ownership_isolation import create_user_and_headers
 
 
 def test_database_and_storage_crud_do_not_expose_secrets(client, admin_headers, tmp_path):
@@ -41,6 +42,62 @@ def test_storage_update_without_config_preserves_existing_config(client, admin_h
         assert decrypt_config(storage.config_encrypted) == {"root_path": str(root)}
     finally:
         db.close()
+
+
+def test_non_admin_local_storage_root_must_stay_inside_configured_root(client, admin_headers, tmp_path):
+    user_headers = create_user_and_headers(client, admin_headers, "storage-user")
+
+    rejected = client.post(
+        "/api/v1/storages",
+        headers=user_headers,
+        json={
+            "name": "outside-local",
+            "storage_type": "local",
+            "config": {"root_path": str(tmp_path / "outside")},
+        },
+    )
+    accepted = client.post(
+        "/api/v1/storages",
+        headers=user_headers,
+        json={
+            "name": "inside-local",
+            "storage_type": "local",
+            "config": {"root_path": str(TEST_ROOT / "backups" / "inside-local")},
+        },
+    )
+
+    assert rejected.status_code == 400
+    assert rejected.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert accepted.status_code == 200, accepted.text
+
+
+def test_soft_deleted_named_resources_can_be_recreated(client, admin_headers, tmp_path):
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers, name="recreate-db")
+    user = client.post(
+        "/api/v1/users",
+        headers=admin_headers,
+        json={"username": "recreate-user", "password": "recreate123456", "role": "User"},
+    )
+
+    deleted_storage = client.delete(f"/api/v1/storages/{storage_id}", headers=admin_headers)
+    deleted_database = client.delete(f"/api/v1/databases/{database_id}", headers=admin_headers)
+    deleted_user = client.delete(f"/api/v1/users/{user.json()['id']}", headers=admin_headers)
+    recreated_storage = create_local_storage(client, admin_headers, tmp_path / "backups2")
+    recreated_database = create_database_instance(client, admin_headers, name="recreate-db")
+    recreated_user = client.post(
+        "/api/v1/users",
+        headers=admin_headers,
+        json={"username": "recreate-user", "password": "recreate654321", "role": "User"},
+    )
+
+    assert user.status_code == 200, user.text
+    assert deleted_storage.status_code == 200
+    assert deleted_database.status_code == 200
+    assert deleted_user.status_code == 200
+    assert recreated_storage
+    assert recreated_database
+    assert recreated_user.status_code == 200, recreated_user.text
 
 
 def test_upload_backup_verify_and_delete(client, admin_headers, tmp_path):

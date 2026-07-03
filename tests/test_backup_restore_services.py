@@ -3,9 +3,10 @@ from pathlib import Path
 from app.core.database import SessionLocal
 from app.drivers.database.base import BackupResult, CommandResult
 from app.drivers.registry import registry
-from app.models import Backup, BackupTask
+from app.models import Backup, BackupTask, Job, RestoreTask
 from app.services.backup_service import run_backup_task
 from app.services.restore_service import run_restore_task
+from app.services.task_recovery import recover_interrupted_tasks
 from tests.conftest import create_database_instance, create_local_storage
 
 
@@ -253,3 +254,73 @@ def test_restore_task_claim_prevents_duplicate_driver_runs(client, admin_headers
     assert response.status_code == 200
     assert rerun.status == "SUCCESS"
     assert FakeMySQLDriver.restore_calls == 1
+
+
+def test_recover_interrupted_tasks_marks_running_work_failed(client, admin_headers, tmp_path):
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers, name="source")
+    db = SessionLocal()
+    try:
+        job = Job(
+            name="recover-job",
+            database_id=database_id,
+            storage_id=storage_id,
+            schedule_type="INTERVAL",
+            interval_seconds=3600,
+            enabled=True,
+            allow_concurrent=False,
+            retention_policy={},
+            backup_config={},
+        )
+        backup_task = BackupTask(
+            database_id=database_id,
+            storage_id=storage_id,
+            status="RUNNING",
+            trigger_type="JOB",
+            job_id=None,
+            config={},
+        )
+        db.add_all([job, backup_task])
+        db.flush()
+        backup = Backup(
+            database_id=database_id,
+            storage_id=storage_id,
+            backup_task_id=backup_task.id,
+            backup_type="LOGICAL",
+            status="RUNNING",
+            object_key="pending",
+            filename="pending.sql",
+            file_format="pending",
+            size_bytes=0,
+            compressed=False,
+            sha256="",
+            created_by=None,
+            extra_metadata={},
+        )
+        backup_task.job_id = job.id
+        job.active_backup_task_id = backup_task.id
+        db.add(backup)
+        db.flush()
+        restore_task = RestoreTask(
+            backup_id=backup.id,
+            source_database_id=database_id,
+            target_database_id=database_id,
+            restore_mode="NEW_INSTANCE",
+            status="PENDING",
+        )
+        db.add(restore_task)
+        db.commit()
+
+        result = recover_interrupted_tasks(db)
+        db.refresh(job)
+        db.refresh(backup_task)
+        db.refresh(restore_task)
+        db.refresh(backup)
+
+        assert result == {"backup_tasks": 1, "restore_tasks": 1}
+        assert backup_task.status == "FAILED"
+        assert restore_task.status == "FAILED"
+        assert backup.status == "FAILED"
+        assert job.active_backup_task_id is None
+    finally:
+        db.close()

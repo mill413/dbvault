@@ -52,6 +52,7 @@ def _ensure_kubeconfig_access(kubeconfig: str | None, user: User) -> None:
 @router.get("", response_model=Page[DatabaseRead])
 def list_databases(
     pagination: Pagination = Depends(pagination_params),
+    name: str | None = None,
     db_type: str | None = None,
     environment: str | None = None,
     db: Session = Depends(get_db),
@@ -59,6 +60,8 @@ def list_databases(
 ):
     query = db.query(DatabaseInstance).filter(DatabaseInstance.deleted_at.is_(None))
     query = owner_filter(query, DatabaseInstance, user)
+    if name:
+        query = query.filter(DatabaseInstance.name.ilike(f"%{name}%"))
     if db_type:
         query = query.filter(DatabaseInstance.db_type == db_type.lower())
     if environment:
@@ -80,6 +83,8 @@ def create_database_endpoint(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("database:write")),
 ):
+    if payload.k8s_config:
+        _ensure_kubeconfig_access(payload.k8s_config.kubeconfig, user)
     item = create_database(db, payload, user)
     create_audit_log(
         db,
@@ -98,6 +103,8 @@ def test_temporary_database(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("database:write")),
 ):
+    if payload.k8s_config:
+        _ensure_kubeconfig_access(payload.k8s_config.kubeconfig, user)
     item = create_database(db, payload, user)
     result = test_database_connection(item)
     item.deleted_at = datetime.now(UTC)
@@ -153,7 +160,9 @@ def update_database_endpoint(
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
     ensure_owner(item, user, "Database instance not found")
-    update_database(item, payload)
+    if payload.k8s_config:
+        _ensure_kubeconfig_access(payload.k8s_config.kubeconfig, user)
+    update_database(db, item, payload)
     db.commit()
     db.refresh(item)
     create_audit_log(

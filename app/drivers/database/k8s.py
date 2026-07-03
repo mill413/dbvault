@@ -1,7 +1,9 @@
 import json
+import shlex
 import subprocess
 from dataclasses import dataclass
 from time import monotonic
+from uuid import uuid4
 
 from app.core.logging import mask_secret
 from app.drivers.database.base import CommandResult, elapsed_since, tail_text
@@ -60,6 +62,19 @@ def build_kubectl_exec_args(config: K8sConfig, command: list[str], env_vars: dic
     return args
 
 
+def _build_kubectl_exec_without_env(config: K8sConfig, command: list[str]) -> list[str]:
+    args = _build_kubectl_base_args(config)
+    args.append("exec")
+    if config.pod_name:
+        args.append(config.pod_name)
+    if config.container:
+        args.extend(["-c", config.container])
+    args.append("--stdin")
+    args.append("--")
+    args.extend(command)
+    return args
+
+
 def resolve_pod_name(config: K8sConfig, timeout_seconds: int = 10) -> str | None:
     if config.pod_name:
         return config.pod_name
@@ -80,6 +95,36 @@ def resolve_pod_name(config: K8sConfig, timeout_seconds: int = 10) -> str | None
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
     return None
+
+
+def _write_remote_env_file(config: K8sConfig, env_vars: dict[str, str], timeout_seconds: int) -> str | None:
+    remote_path = f"/tmp/dbvault-env-{uuid4().hex}"
+    content = "".join(f"export {key}={shlex.quote(value)}\n" for key, value in env_vars.items())
+    args = _build_kubectl_exec_without_env(
+        config,
+        ["sh", "-c", f"umask 077; cat > {shlex.quote(remote_path)}"],
+    )
+    try:
+        result = subprocess.run(
+            args,
+            input=content.encode("utf-8"),
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    return remote_path
+
+
+def _remove_remote_env_file(config: K8sConfig, remote_path: str, timeout_seconds: int = 10) -> None:
+    args = _build_kubectl_exec_without_env(config, ["rm", "-f", remote_path])
+    try:
+        subprocess.run(args, capture_output=True, timeout=timeout_seconds, check=False)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
 
 
 def run_kubectl_command(
@@ -113,11 +158,26 @@ def run_kubectl_command(
         kubeconfig=config.kubeconfig,
         context=config.context,
     )
-    args = build_kubectl_exec_args(exec_config, command, env_vars=k8s_env_vars if k8s_env_vars else None)
+    remote_env_file = None
+    if k8s_env_vars:
+        remote_env_file = _write_remote_env_file(exec_config, k8s_env_vars, min(timeout_seconds, 30))
+        if not remote_env_file:
+            return CommandResult(
+                ok=False,
+                returncode=1,
+                stdout_tail="",
+                stderr_tail="Failed to prepare Kubernetes command environment.",
+                duration_seconds=elapsed_since(start),
+            )
+        args = _build_kubectl_exec_without_env(
+            exec_config,
+            ["sh", "-c", f". {shlex.quote(remote_env_file)}; exec \"$@\"", "dbvault-command", *command],
+        )
+    else:
+        args = _build_kubectl_exec_without_env(exec_config, command)
     try:
         completed = subprocess.run(
             args,
-            env=env,
             stdin=input_file if input_file is not None else subprocess.PIPE,
             stdout=output_file if output_file is not None else subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -140,6 +200,9 @@ def run_kubectl_command(
             stderr_tail=mask_secret(tail_text(exc.stderr or b"Timeout")) or "",
             duration_seconds=elapsed_since(start),
         )
+    finally:
+        if remote_env_file:
+            _remove_remote_env_file(exec_config, remote_env_file)
 
     stdout_tail = "" if output_file is not None else tail_text(completed.stdout or b"")
     return CommandResult(
