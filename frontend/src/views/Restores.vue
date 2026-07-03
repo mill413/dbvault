@@ -208,7 +208,7 @@ function validateTargetDatabase(_rule, value, callback) {
 
 const restoreRules = {
   backup_id: [{ required: true, message: '请选择备份', trigger: 'change' }],
-  target_database_id: [{ validator: validateTargetDatabase, trigger: 'change' }],
+  target_database_id: [{ required: true, validator: validateTargetDatabase, trigger: 'change' }],
   restore_mode: [{ required: true, message: '请选择恢复模式', trigger: 'change' }],
 }
 

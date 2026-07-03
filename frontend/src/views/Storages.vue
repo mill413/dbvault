@@ -164,13 +164,37 @@ const form = reactive({
   capacity_unit: 'GB',
 })
 
-const rules = {
-  name: [{ required: true, message: t('storage.nameRequired'), trigger: 'blur' }],
-  storage_type: [{ required: true, message: t('storage.typeRequired'), trigger: 'change' }],
+const hasValue = (value) => value !== undefined && value !== null && value !== ''
+
+const hasConfigInput = () => Object.values(form.config || {}).some(hasValue)
+
+const requireConfigField = (storageType, message) => (_rule, value, callback) => {
+  const shouldValidateConfig = !isEdit.value || hasConfigInput()
+  if (form.storage_type === storageType && shouldValidateConfig && !hasValue(value)) {
+    callback(new Error(message))
+    return
+  }
+  callback()
 }
+
+const rules = computed(() => {
+  const configRequired = !isEdit.value || hasConfigInput()
+  const localRequired = form.storage_type === 'local' && configRequired
+  const s3Required = form.storage_type === 's3' && configRequired
+  return {
+    name: [{ required: true, message: t('storage.nameRequired'), trigger: 'blur' }],
+    storage_type: [{ required: true, message: t('storage.typeRequired'), trigger: 'change' }],
+    'config.path': [{ required: localRequired, validator: requireConfigField('local', t('storage.path')), trigger: 'blur' }],
+    'config.endpoint_url': [{ required: s3Required, validator: requireConfigField('s3', t('storage.endpoint')), trigger: 'blur' }],
+    'config.access_key': [{ required: s3Required, validator: requireConfigField('s3', t('storage.accessKey')), trigger: 'blur' }],
+    'config.secret_key': [{ required: s3Required, validator: requireConfigField('s3', t('storage.secretKey')), trigger: 'blur' }],
+    'config.bucket': [{ required: s3Required, validator: requireConfigField('s3', t('storage.bucket')), trigger: 'blur' }],
+  }
+})
 
 const onTypeChange = () => {
   form.config = {}
+  formRef.value?.clearValidate()
 }
 
 const filteredStorages = computed(() => {

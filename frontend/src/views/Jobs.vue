@@ -153,6 +153,9 @@ const rules = {
   database_id: [{ required: true, message: '请选择数据库', trigger: 'change' }],
   storage_id: [{ required: true, message: '请选择存储', trigger: 'change' }],
   schedule_type: [{ required: true, message: '请选择调度类型', trigger: 'change' }],
+  cron_expr: [{ required: true, message: '请输入 Cron 表达式', trigger: 'blur' }],
+  interval_seconds: [{ required: true, message: '请输入间隔秒数', trigger: 'change' }],
+  run_at: [{ required: true, message: '请选择执行时间', trigger: 'change' }],
 }
 
 const getScheduleLabel = (type) => {
