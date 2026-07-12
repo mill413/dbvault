@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from alembic import command
 
 TEST_ROOT = Path(tempfile.mkdtemp(prefix="dbvault-tests-"))
+os.environ["DBVAULT_ENV_FILE"] = ""
 os.environ["DBVAULT_DATABASE_URL"] = f"sqlite:///{TEST_ROOT / 'test.db'}"
 os.environ["DBVAULT_JWT_SECRET"] = "test-secret"
 os.environ["DBVAULT_BACKUP_TMP_DIR"] = str(TEST_ROOT / "tmp")

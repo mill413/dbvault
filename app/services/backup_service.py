@@ -132,9 +132,12 @@ def try_acquire_job_slot(db: Session, job: Job, task: BackupTask) -> bool:
 def _release_job_slot(db: Session, task: BackupTask) -> None:
     if not task.job_id:
         return
-    job = db.get(Job, task.job_id)
-    if job and job.active_backup_task_id == task.id:
-        job.active_backup_task_id = None
+    updated = (
+        db.query(Job)
+        .filter(Job.id == task.job_id, Job.active_backup_task_id == task.id)
+        .update({Job.active_backup_task_id: None}, synchronize_session=False)
+    )
+    if updated:
         db.commit()
 
 

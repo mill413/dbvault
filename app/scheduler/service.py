@@ -22,7 +22,7 @@ def build_trigger(job: Job):
         if not job.interval_seconds:
             raise ValueError("interval_seconds is required for INTERVAL jobs")
         return IntervalTrigger(seconds=job.interval_seconds, timezone=job.timezone)
-    if schedule_type in {"ONE_TIME", "ONE-SHOT", "DATE"}:
+    if schedule_type in {"ONCE", "ONE_TIME", "ONE-SHOT", "DATE"}:
         if not job.run_at:
             raise ValueError("run_at is required for one-time jobs")
         return DateTrigger(run_date=job.run_at, timezone=job.timezone)

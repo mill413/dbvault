@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
@@ -48,33 +48,33 @@ def backup_trends(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("backup:read")),
 ):
-    since = datetime.now(UTC) - timedelta(days=days)
-    day_expr = func.date(BackupTask.created_at)
+    local_now = datetime.now().astimezone()
+    local_tz = local_now.tzinfo
+    today = local_now.date()
+    since_date = today - timedelta(days=days - 1)
+    since = datetime.combine(since_date, datetime.min.time(), tzinfo=local_tz).astimezone(UTC)
     query = db.query(
-        day_expr.label("day"),
+        BackupTask.created_at,
         BackupTask.status,
-        func.count(BackupTask.id),
     ).filter(BackupTask.created_at >= since)
     query = owner_filter(query, BackupTask, user)
-    rows = (
-        query.group_by(day_expr, BackupTask.status)
-        .order_by(day_expr.asc())
-        .all()
-    )
+    rows = query.order_by(BackupTask.created_at.asc()).all()
     if not rows:
         return []
 
     grouped: dict[str, dict] = defaultdict(lambda: {"success_count": 0, "failed_count": 0})
-    for d, status, count in rows:
-        key = d.isoformat() if isinstance(d, date) else str(d)
+    for created_at, status in rows:
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=UTC)
+        key = created_at.astimezone(local_tz).date().isoformat()
         if status == "SUCCESS":
-            grouped[key]["success_count"] = count
+            grouped[key]["success_count"] += 1
         elif status == "FAILED":
-            grouped[key]["failed_count"] = count
+            grouped[key]["failed_count"] += 1
 
     all_dates: set[str] = set()
     for i in range(days):
-        all_dates.add(str(date.today() - timedelta(days=i)))
+        all_dates.add((today - timedelta(days=i)).isoformat())
     for d in all_dates:
         if d not in grouped:
             grouped[d] = {"success_count": 0, "failed_count": 0}
