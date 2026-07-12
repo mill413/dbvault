@@ -89,6 +89,7 @@ def run_kubectl_command(
     input_file=None,
     output_file=None,
     timeout_seconds: int = 21600,
+    output_limit: int = 8000,
 ) -> CommandResult:
     k8s_env_vars = {}
     if env:
@@ -119,17 +120,17 @@ def run_kubectl_command(
         return CommandResult(
             ok=False,
             returncode=124,
-            stdout_tail=tail_text(exc.stdout or b""),
-            stderr_tail=tail_text(exc.stderr or b"Timeout"),
+            stdout_tail=tail_text(exc.stdout or b"", output_limit),
+            stderr_tail=tail_text(exc.stderr or b"Timeout", output_limit),
             duration_seconds=elapsed_since(start),
         )
 
-    stdout_tail = "" if output_file is not None else tail_text(completed.stdout or b"")
+    stdout_tail = "" if output_file is not None else tail_text(completed.stdout or b"", output_limit)
     return CommandResult(
         ok=completed.returncode == 0,
         returncode=completed.returncode,
         stdout_tail=stdout_tail,
-        stderr_tail=tail_text(completed.stderr or b""),
+        stderr_tail=tail_text(completed.stderr or b"", output_limit),
         duration_seconds=elapsed_since(start),
     )
 

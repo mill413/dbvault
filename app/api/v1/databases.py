@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_permission
 from app.core.database import get_db
 from app.core.errors import AppError
+from app.drivers.database.k8s import list_namespaces, list_pods
 from app.models import DatabaseInstance, User
+from app.schemas.browser import CatalogRead, ColumnRead, RowPage, TableRead
 from app.schemas.common import Message, Page
 from app.schemas.databases import (
     ConnectionTestResponse,
@@ -15,8 +17,8 @@ from app.schemas.databases import (
     DatabaseTestRequest,
     DatabaseUpdate,
 )
-from app.drivers.database.k8s import list_namespaces, list_pods
 from app.services.audit_service import create_audit_log
+from app.services.database_browser_service import DatabaseBrowser
 from app.services.database_service import (
     create_database,
     test_database_connection,
@@ -24,6 +26,60 @@ from app.services.database_service import (
 )
 
 router = APIRouter()
+
+
+def _browser(db: Session, database_id: int) -> DatabaseBrowser:
+    item = db.get(DatabaseInstance, database_id)
+    if not item or item.deleted_at is not None:
+        raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    return DatabaseBrowser(item)
+
+
+@router.get("/{database_id}/browser/catalogs", response_model=list[CatalogRead])
+def list_browser_catalogs(
+    database_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("database:read")),
+):
+    return _browser(db, database_id).list_catalogs()
+
+
+@router.get("/{database_id}/browser/tables", response_model=list[TableRead])
+def list_browser_tables(
+    database_id: int,
+    catalog: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("database:read")),
+):
+    return _browser(db, database_id).list_tables(catalog)
+
+
+@router.get("/{database_id}/browser/columns", response_model=list[ColumnRead])
+def list_browser_columns(
+    database_id: int,
+    catalog: str,
+    schema: str,
+    table: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("database:read")),
+):
+    return _browser(db, database_id).list_columns(catalog, schema, table)
+
+
+@router.get("/{database_id}/browser/rows", response_model=RowPage)
+def list_browser_rows(
+    database_id: int,
+    catalog: str,
+    schema: str,
+    table: str,
+    page: int = 1,
+    page_size: int = 20,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("database:read")),
+):
+    if page < 1 or page_size < 1 or page_size > 100:
+        raise AppError("INVALID_PAGINATION", "page must be positive and page_size must be between 1 and 100", 400)
+    return _browser(db, database_id).get_rows(catalog, schema, table, page, page_size)
 
 
 @router.get("", response_model=Page[DatabaseRead])

@@ -2,6 +2,7 @@ export default {
   common: {
     dashboard: 'Dashboard',
     databases: 'Databases',
+    databaseBrowser: 'Database Browser',
     storage: 'Storage',
     backups: 'Backups',
     schedules: 'Schedules',
@@ -31,6 +32,11 @@ export default {
     ok: 'OK',
     fail: 'Failed',
     accessDenied: 'Access denied. You do not have permission to view this page.'
+  },
+  browser: {
+    title: 'Database Browser', instance: 'Select instance', catalog: 'Select database', filterTables: 'Filter tables',
+    noTables: 'No tables', selectTable: 'Select a table on the left', data: 'Data', structure: 'Structure',
+    column: 'Column', type: 'Type', nullable: 'Nullable', primaryKey: 'Primary key', defaultValue: 'Default'
   },
   login: {
     title: 'Secure. Reliable. Database Management.',

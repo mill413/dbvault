@@ -34,6 +34,12 @@ const routes = [
         meta: { title: '数据库实例' },
       },
       {
+        path: 'database-browser',
+        name: 'DatabaseBrowser',
+        component: () => import('../views/DatabaseBrowser.vue'),
+        meta: { title: '数据库查看' },
+      },
+      {
         path: 'storages',
         name: 'Storages',
         component: () => import('../views/Storages.vue'),

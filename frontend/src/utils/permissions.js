@@ -31,6 +31,7 @@ export function canViewRoute(role, routeName) {
   const map = {
     Dashboard: 'backup:read',
     Databases: 'database:read',
+    DatabaseBrowser: 'database:read',
     Storages: 'storage:read',
     Backups: 'backup:read',
     Jobs: 'job:read',

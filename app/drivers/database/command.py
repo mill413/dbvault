@@ -12,6 +12,7 @@ def run_command(
     input_file=None,
     output_file=None,
     timeout_seconds: int = 21600,
+    output_limit: int = 8000,
 ) -> CommandResult:
     start = monotonic()
     try:
@@ -36,17 +37,16 @@ def run_command(
         return CommandResult(
             ok=False,
             returncode=124,
-            stdout_tail=tail_text(exc.stdout or b""),
-            stderr_tail=mask_secret(tail_text(exc.stderr or b"Timeout")) or "",
+            stdout_tail=tail_text(exc.stdout or b"", output_limit),
+            stderr_tail=mask_secret(tail_text(exc.stderr or b"Timeout", output_limit)) or "",
             duration_seconds=elapsed_since(start),
         )
 
-    stdout_tail = "" if output_file is not None else tail_text(completed.stdout or b"")
+    stdout_tail = "" if output_file is not None else tail_text(completed.stdout or b"", output_limit)
     return CommandResult(
         ok=completed.returncode == 0,
         returncode=completed.returncode,
         stdout_tail=mask_secret(stdout_tail) or "",
-        stderr_tail=mask_secret(tail_text(completed.stderr or b"")) or "",
+        stderr_tail=mask_secret(tail_text(completed.stderr or b"", output_limit)) or "",
         duration_seconds=elapsed_since(start),
     )
-

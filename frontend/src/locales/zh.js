@@ -2,6 +2,7 @@ export default {
   common: {
     dashboard: '仪表盘',
     databases: '数据库实例',
+    databaseBrowser: '数据库查看',
     storage: '存储管理',
     backups: '备份管理',
     schedules: '定时任务',
@@ -31,6 +32,11 @@ export default {
     ok: '正常',
     fail: '失败',
     accessDenied: '权限不足，无法访问该页面'
+  },
+  browser: {
+    title: '数据库查看', instance: '选择实例', catalog: '选择数据库', filterTables: '筛选数据表',
+    noTables: '暂无数据表', selectTable: '请选择左侧数据表', data: '数据', structure: '表结构',
+    column: '字段', type: '类型', nullable: '允许为空', primaryKey: '主键', defaultValue: '默认值'
   },
   login: {
     title: 'DBVault',

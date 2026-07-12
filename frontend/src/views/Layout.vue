@@ -21,6 +21,10 @@
           <el-icon><Coin /></el-icon>
           <span>{{ $t('common.databases') }}</span>
         </el-menu-item>
+        <el-menu-item v-if="canView('DatabaseBrowser')" index="/database-browser">
+          <el-icon><Grid /></el-icon>
+          <span>{{ $t('common.databaseBrowser') }}</span>
+        </el-menu-item>
         <el-menu-item v-if="canView('Storages')" index="/storages">
           <el-icon><Files /></el-icon>
           <span>{{ $t('common.storage') }}</span>
