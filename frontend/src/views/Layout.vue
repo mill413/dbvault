@@ -64,6 +64,7 @@
         <div class="header-right">
           <el-switch
             v-model="isDark"
+            :aria-label="$t('common.themeToggle')"
             inline-prompt
             :active-icon="Moon"
             :inactive-icon="Sunny"
@@ -71,7 +72,14 @@
             style="margin-right: 24px; --el-switch-on-color: var(--border-color); --el-switch-off-color: var(--border-color);"
           />
           <el-dropdown @command="handleCommand" trigger="click">
-            <div class="user-profile">
+            <div
+              class="user-profile"
+              role="button"
+              tabindex="0"
+              :aria-label="$t('common.userMenu')"
+              @keydown.enter.prevent="$event.currentTarget.click()"
+              @keydown.space.prevent="$event.currentTarget.click()"
+            >
               <div class="avatar">
                 <el-icon><User /></el-icon>
               </div>
@@ -102,7 +110,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
@@ -116,26 +124,33 @@ const authStore = useAuthStore()
 const { t } = useI18n()
 
 const activeMenu = computed(() => route.path)
-const currentTitle = computed(() => route.meta.title || '')
+const currentTitle = computed(() => (route.meta.titleKey ? t(route.meta.titleKey) : ''))
 const userRole = computed(() => authStore.user?.role || '')
 const canView = (name) => canViewRoute(userRole.value, name)
 
-const isDark = ref(localStorage.getItem('theme') === 'dark')
+const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+const storedTheme = localStorage.getItem('theme')
+const isDark = ref(storedTheme ? storedTheme === 'dark' : mediaQuery.matches)
+
+const applyTheme = (dark) => {
+  document.documentElement.classList.toggle('dark', dark)
+}
 
 const toggleDark = (val) => {
-  if (val) {
-    document.documentElement.classList.add('dark')
-    localStorage.setItem('theme', 'dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-    localStorage.setItem('theme', 'light')
+  applyTheme(val)
+  localStorage.setItem('theme', val ? 'dark' : 'light')
+}
+
+const onMediaChange = (e) => {
+  if (!localStorage.getItem('theme')) {
+    isDark.value = e.matches
+    applyTheme(e.matches)
   }
 }
 
 onMounted(() => {
-  if (isDark.value) {
-    document.documentElement.classList.add('dark')
-  }
+  applyTheme(isDark.value)
+  mediaQuery.addEventListener('change', onMediaChange)
 
   if (route.query.denied === '1') {
     ElMessage.warning(t('common.accessDenied'))
@@ -143,10 +158,14 @@ onMounted(() => {
   }
 })
 
+onUnmounted(() => {
+  mediaQuery.removeEventListener('change', onMediaChange)
+})
+
 const handleCommand = async (command) => {
   if (command === 'logout') {
     await authStore.logout()
-    ElMessage.success(t('common.signOut') + ' OK')
+    ElMessage.success(t('common.signedOut'))
     router.push('/login')
   }
 }

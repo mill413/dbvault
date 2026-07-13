@@ -5,13 +5,13 @@
         <div class="card-header">
           <span>{{ $t('database.list') }}</span>
           <div class="header-filters">
-            <el-input v-model="searchName" :placeholder="$t('database.searchName')" clearable style="width: 180px" @input="fetchData" />
-            <el-select v-model="filterDbType" :placeholder="$t('database.type')" clearable style="width: 140px" @change="fetchData">
+            <el-input v-model="searchName" :placeholder="$t('database.searchName')" clearable style="width: 180px" @input="applyFilters" />
+            <el-select v-model="filterDbType" :placeholder="$t('database.type')" clearable style="width: 140px" @change="applyFilters">
               <el-option label="MySQL" value="mysql" />
               <el-option label="PostgreSQL" value="postgresql" />
               <el-option label="MariaDB" value="mariadb" />
             </el-select>
-            <el-select v-model="filterEnv" :placeholder="$t('database.env')" clearable style="width: 120px" @change="fetchData">
+            <el-select v-model="filterEnv" :placeholder="$t('database.env')" clearable style="width: 120px" @change="applyFilters">
               <el-option :label="$t('database.envProd')" value="prod" />
               <el-option :label="$t('database.envTest')" value="test" />
               <el-option :label="$t('database.envDev')" value="dev" />
@@ -34,7 +34,7 @@
         </el-table-column>
         <el-table-column prop="connection_type" :label="$t('database.connectionType')" width="120" sortable>
           <template #default="{ row }">
-            <el-tag :type="row.connection_type === 'kubernetes' ? 'warning' : ''" size="small">
+            <el-tag :type="row.connection_type === 'kubernetes' ? 'warning' : 'primary'" size="small">
               {{ row.connection_type === 'kubernetes' ? 'K8s' : $t('database.directConnection') }}
             </el-tag>
           </template>
@@ -57,6 +57,11 @@
         <el-table-column prop="environment" :label="$t('database.env')" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="getEnvType(row.environment)" size="small">{{ row.environment }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_by_username" :label="$t('common.createdBy')" width="120" sortable>
+          <template #default="{ row }">
+            {{ row.created_by_username || (row.created_by ? `#${row.created_by}` : '-') }}
           </template>
         </el-table-column>
         <el-table-column :label="$t('common.actions')" width="220" fixed="right">
@@ -85,7 +90,7 @@
         <el-form-item :label="$t('database.name')" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item :label="$t('database.connectionType')">
+        <el-form-item :label="$t('database.connectionType')" prop="connection_type">
           <el-radio-group v-model="form.connection_type" @change="onConnectionTypeChange">
             <el-radio value="direct">{{ $t('database.directConnection') }}</el-radio>
             <el-radio value="kubernetes">Kubernetes</el-radio>
@@ -115,7 +120,7 @@
         <el-form-item :label="$t('database.databaseName')">
           <el-input v-model="form.database_name" :placeholder="$t('database.dbNamePlaceholder')" />
         </el-form-item>
-        <el-form-item :label="$t('database.env')">
+        <el-form-item :label="$t('database.env')" prop="environment">
           <el-select v-model="form.environment" style="width: 100%">
             <el-option :label="$t('database.envProd')" value="prod" />
             <el-option :label="$t('database.envTest')" value="test" />
@@ -140,12 +145,17 @@
               <el-option v-for="ctx in currentKubeconfigContexts" :key="ctx" :label="ctx" :value="ctx" />
             </el-select>
           </el-form-item>
-          <el-form-item :label="$t('database.k8sNamespace')">
+          <el-form-item :label="$t('database.k8sNamespace')" prop="k8s_config.namespace">
             <div style="display: flex; gap: 8px; width: 100%">
               <el-select v-model="form.k8s_config.namespace" filterable allow-create style="flex: 1" :loading="k8sNamespacesLoading">
                 <el-option v-for="ns in k8sNamespaces" :key="ns" :label="ns" :value="ns" />
               </el-select>
-              <el-button @click="fetchK8sNamespaces" :loading="k8sNamespacesLoading">
+              <el-button
+                @click="fetchK8sNamespaces"
+                :loading="k8sNamespacesLoading"
+                :aria-label="$t('common.refresh')"
+                :title="$t('common.refresh')"
+              >
                 <el-icon><Refresh /></el-icon>
               </el-button>
             </div>
@@ -156,7 +166,7 @@
               <el-radio value="label_selector">{{ $t('database.k8sLabelSelector') }}</el-radio>
             </el-radio-group>
           </el-form-item>
-          <el-form-item v-if="k8sSelectorType === 'pod_name'" :label="$t('database.k8sPodName')">
+          <el-form-item v-if="k8sSelectorType === 'pod_name'" :label="$t('database.k8sPodName')" prop="k8s_config.pod_name">
             <div style="display: flex; gap: 8px; width: 100%">
               <el-select v-model="form.k8s_config.pod_name" filterable allow-create style="flex: 1" :loading="k8sPodsLoading" @change="onPodChange">
                 <el-option v-for="pod in k8sPods" :key="pod.name" :label="pod.name" :value="pod.name">
@@ -164,12 +174,17 @@
                   <el-tag :type="getPodStatusType(pod.status)" size="small" style="float: right">{{ pod.status }}</el-tag>
                 </el-option>
               </el-select>
-              <el-button @click="fetchK8sPods" :loading="k8sPodsLoading">
+              <el-button
+                @click="fetchK8sPods"
+                :loading="k8sPodsLoading"
+                :aria-label="$t('common.refresh')"
+                :title="$t('common.refresh')"
+              >
                 <el-icon><Refresh /></el-icon>
               </el-button>
             </div>
           </el-form-item>
-          <el-form-item v-if="k8sSelectorType === 'label_selector'" :label="$t('database.k8sLabelSelector')">
+          <el-form-item v-if="k8sSelectorType === 'label_selector'" :label="$t('database.k8sLabelSelector')" prop="k8s_config.label_selector">
             <el-input v-model="form.k8s_config.label_selector" placeholder="app=mysql" @input="clearPodName" />
           </el-form-item>
           <el-form-item :label="$t('database.k8sContainer')">
@@ -195,11 +210,11 @@
     <el-dialog v-model="clusterDialogVisible" :title="$t('database.k8sManageClusters')" width="720px" top="5vh">
       <div style="margin-bottom: 16px">
         <el-alert :title="$t('database.k8sManageTip')" type="info" :closable="false" show-icon style="margin-bottom: 12px" />
-        <el-form :model="uploadForm" label-width="100px" size="small">
-          <el-form-item :label="$t('database.k8sClusterName')">
+        <el-form :model="uploadForm" :rules="uploadRules" ref="uploadFormRef" label-width="100px" size="small">
+          <el-form-item :label="$t('database.k8sClusterName')" prop="name">
             <el-input v-model="uploadForm.name" :placeholder="$t('database.k8sClusterNamePlaceholder')" />
           </el-form-item>
-          <el-form-item :label="$t('database.k8sKubeconfigContent')">
+          <el-form-item :label="$t('database.k8sKubeconfigContent')" prop="content">
             <el-input v-model="uploadForm.content" type="textarea" :rows="8" :placeholder="$t('database.k8sKubeconfigContentPlaceholder')" />
           </el-form-item>
           <el-form-item>
@@ -251,6 +266,7 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
 const formRef = ref(null)
+const uploadFormRef = ref(null)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -308,12 +324,42 @@ const defaultForm = {
 
 const form = reactive({ ...defaultForm, k8s_config: { ...defaultForm.k8s_config } })
 
+const hasValue = (value) => value !== undefined && value !== null && value !== ''
+
+const requireDirectConnection = (label) => (_rule, value, callback) => {
+  if (form.connection_type === 'direct' && !hasValue(value)) {
+    callback(new Error(label))
+    return
+  }
+  callback()
+}
+
+const requireK8sConfig = (label, isActive) => (_rule, value, callback) => {
+  if (form.connection_type === 'kubernetes' && isActive() && !hasValue(value)) {
+    callback(new Error(label))
+    return
+  }
+  callback()
+}
+
 const rules = computed(() => ({
+  connection_type: [{ required: true, message: t('database.connectionType'), trigger: 'change' }],
   name: [{ required: true, message: t('database.name'), trigger: 'blur' }],
   db_type: [{ required: true, message: t('database.type'), trigger: 'change' }],
+  host: [{ required: form.connection_type === 'direct', validator: requireDirectConnection(t('database.host')), trigger: 'blur' }],
+  port: [{ required: form.connection_type === 'direct', validator: requireDirectConnection(t('database.port')), trigger: 'change' }],
   username: [{ required: true, message: t('database.username'), trigger: 'blur' }],
   password: [{ required: !isEdit.value, message: t('database.password'), trigger: 'blur' }],
+  environment: [{ required: true, message: t('database.env'), trigger: 'change' }],
+  'k8s_config.namespace': [{ required: form.connection_type === 'kubernetes', validator: requireK8sConfig(t('database.k8sNamespace'), () => true), trigger: 'change' }],
+  'k8s_config.pod_name': [{ required: form.connection_type === 'kubernetes' && k8sSelectorType.value === 'pod_name', validator: requireK8sConfig(t('database.k8sPodName'), () => k8sSelectorType.value === 'pod_name'), trigger: 'change' }],
+  'k8s_config.label_selector': [{ required: form.connection_type === 'kubernetes' && k8sSelectorType.value === 'label_selector', validator: requireK8sConfig(t('database.k8sLabelSelector'), () => k8sSelectorType.value === 'label_selector'), trigger: 'blur' }],
 }))
+
+const uploadRules = {
+  name: [{ required: true, message: t('database.k8sClusterName'), trigger: 'blur' }],
+  content: [{ required: true, message: t('database.k8sKubeconfigContent'), trigger: 'blur' }],
+}
 
 const getEnvType = (env) => {
   const map = { prod: 'danger', test: 'warning', dev: 'info' }
@@ -343,10 +389,8 @@ const showClusterDialog = () => {
 }
 
 const handleUploadKubeconfig = async () => {
-  if (!uploadForm.name || !uploadForm.content) {
-    ElMessage.warning(t('database.k8sUploadRequired'))
-    return
-  }
+  const valid = await uploadFormRef.value.validate().catch(() => false)
+  if (!valid) return
   uploading.value = true
   try {
     await createKubeconfig({ name: uploadForm.name, content: uploadForm.content })
@@ -468,6 +512,9 @@ const fetchData = async () => {
   loading.value = true
   try {
     const params = { page: page.value, page_size: pageSize.value }
+    if (searchName.value) {
+      params.name = searchName.value
+    }
     if (filterDbType.value) {
       params.db_type = filterDbType.value
     }
@@ -475,18 +522,18 @@ const fetchData = async () => {
       params.environment = filterEnv.value
     }
     const response = await getDatabases(params)
-    let items = response.data.items || []
-    if (searchName.value) {
-      const keyword = searchName.value.toLowerCase()
-      items = items.filter((item) => item.name.toLowerCase().includes(keyword))
-    }
-    databases.value = items
+    databases.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error) {
     console.error('Failed to fetch databases:', error)
   } finally {
     loading.value = false
   }
+}
+
+const applyFilters = () => {
+  page.value = 1
+  fetchData()
 }
 
 const resetForm = () => {

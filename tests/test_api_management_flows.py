@@ -1,5 +1,7 @@
+from app.core.database import SessionLocal
 from app.drivers.database.base import BackupResult
 from app.drivers.registry import registry
+from app.models import Alert, AuditLog, Backup, RestoreTask, User
 from tests.conftest import create_database_instance, create_local_storage
 
 
@@ -43,31 +45,68 @@ def test_auth_refresh_change_password_and_user_management(client, admin_headers)
         headers=admin_headers,
         json={"old_password": "admin123456789", "new_password": "new-admin123456"},
     )
+    old_token_rejected = client.get("/api/v1/auth/me", headers=admin_headers)
+    relogin = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "new-admin123456"},
+    )
+    new_admin_headers = {"Authorization": f"Bearer {relogin.json()['access_token']}"}
+    old_refresh_rejected = client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": login.json()["refresh_token"]},
+    )
     created = client.post(
         "/api/v1/users",
-        headers=admin_headers,
-        json={"username": "operator", "password": "operator123456", "role": "Operator"},
+        headers=new_admin_headers,
+        json={"username": "operator", "password": "operator123456", "role": "User"},
     )
     user_id = created.json()["id"]
     updated = client.put(
         f"/api/v1/users/{user_id}",
-        headers=admin_headers,
-        json={"display_name": "Ops", "role": "Viewer"},
+        headers=new_admin_headers,
+        json={"display_name": "Ops", "role": "User"},
     )
     reset = client.post(
         f"/api/v1/users/{user_id}/reset-password",
-        headers=admin_headers,
+        headers=new_admin_headers,
         json={"password": "operator654321"},
     )
-    deleted = client.delete(f"/api/v1/users/{user_id}", headers=admin_headers)
+    deleted = client.delete(f"/api/v1/users/{user_id}", headers=new_admin_headers)
 
     assert refresh.status_code == 200
     assert change.status_code == 200
+    assert old_token_rejected.status_code == 401
+    assert old_refresh_rejected.status_code == 401
+    assert relogin.status_code == 200
     assert created.status_code == 200
     assert updated.json()["display_name"] == "Ops"
-    assert updated.json()["role"] == "Viewer"
+    assert updated.json()["role"] == "User"
     assert reset.status_code == 200
     assert deleted.status_code == 200
+
+
+def test_user_optional_email_accepts_blank_values(client, admin_headers):
+    created = client.post(
+        "/api/v1/users",
+        headers=admin_headers,
+        json={
+            "username": "blank-email",
+            "password": "blank12345",
+            "display_name": "",
+            "email": "",
+            "role": "User",
+        },
+    )
+    updated = client.put(
+        f"/api/v1/users/{created.json()['id']}",
+        headers=admin_headers,
+        json={"email": ""},
+    )
+
+    assert created.status_code == 200
+    assert created.json()["email"] is None
+    assert updated.status_code == 200
+    assert updated.json()["email"] is None
 
 
 def test_database_storage_and_job_management(client, admin_headers, tmp_path):
@@ -106,19 +145,219 @@ def test_database_storage_and_job_management(client, admin_headers, tmp_path):
         json={"name": "renamed-job", "enabled": True},
     )
     run_now = client.post(f"/api/v1/jobs/{job_id}/run-now", headers=admin_headers)
-    job_delete = client.delete(f"/api/v1/jobs/{job_id}", headers=admin_headers)
+    scheduled_backups = client.get("/api/v1/backups?source_type=SCHEDULED", headers=admin_headers)
+    job_delete = client.delete(f"/api/v1/jobs/{job_id}?delete_backups=true", headers=admin_headers)
+    backups_after_job_delete = client.get("/api/v1/backups", headers=admin_headers)
     db_delete = client.delete(f"/api/v1/databases/{database_id}", headers=admin_headers)
     storage_delete = client.delete(f"/api/v1/storages/{storage_id}", headers=admin_headers)
 
     assert db_list.status_code == 200
     assert db_list.json()["total"] == 1
+    assert db_list.json()["items"][0]["created_by_username"] == "admin"
     assert db_update.json()["owner"] == "platform"
+    assert db_update.json()["created_by_username"] == "admin"
     assert storage_update.json()["is_default"] is True
+    assert storage_update.json()["created_by_username"] == "admin"
     assert job.status_code == 200
+    assert job.json()["created_by_username"] == "admin"
     assert job_list.json()["total"] == 1
+    assert job_list.json()["items"][0]["created_by_username"] == "admin"
     assert job_update.json()["name"] == "renamed-job"
     assert run_now.status_code == 200
+    assert scheduled_backups.json()["total"] == 1
+    assert scheduled_backups.json()["items"][0]["source_type"] == "SCHEDULED"
+    assert scheduled_backups.json()["items"][0]["created_by_username"] == "admin"
     assert job_delete.status_code == 200
+    assert backups_after_job_delete.json()["total"] == 0
     assert db_delete.status_code == 200
     assert storage_delete.status_code == 200
 
+
+def test_management_list_filters_apply_before_pagination(client, admin_headers, tmp_path):
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "local-backups")
+    source_database_id = create_database_instance(client, admin_headers, name="filter-alpha")
+    target_database_id = create_database_instance(client, admin_headers, name="filter-beta")
+    s3_storage = client.post(
+        "/api/v1/storages",
+        headers=admin_headers,
+        json={
+            "name": "filter-s3",
+            "storage_type": "s3",
+            "config": {
+                "endpoint_url": "http://minio:9000",
+                "access_key": "access",
+                "secret_key": "secret",
+                "bucket": "backups",
+            },
+            "is_default": False,
+        },
+    )
+    filter_user = client.post(
+        "/api/v1/users",
+        headers=admin_headers,
+        json={"username": "filter-user-beta", "password": "filter123456", "role": "User"},
+    )
+    client.put(f"/api/v1/users/{filter_user.json()['id']}", headers=admin_headers, json={"status": "DISABLED"})
+
+    db = SessionLocal()
+    try:
+        admin_id = db.query(User.id).filter(User.username == "admin").scalar()
+        backup = Backup(
+            database_id=source_database_id,
+            storage_id=storage_id,
+            backup_type="FULL",
+            status="AVAILABLE",
+            object_key="filter/source.sql",
+            filename="source.sql",
+            file_format="sql",
+            size_bytes=1,
+            compressed=False,
+            compression="none",
+            sha256="filter-sha256",
+            created_by=admin_id,
+        )
+        db.add(backup)
+        db.flush()
+        db.add_all(
+            [
+                RestoreTask(
+                    backup_id=backup.id,
+                    source_database_id=source_database_id,
+                    target_database_id=source_database_id,
+                    restore_mode="ORIGINAL_INSTANCE",
+                    status="SUCCESS",
+                    created_by=admin_id,
+                ),
+                RestoreTask(
+                    backup_id=backup.id,
+                    source_database_id=source_database_id,
+                    target_database_id=target_database_id,
+                    restore_mode="NEW_INSTANCE",
+                    status="FAILED",
+                    created_by=admin_id,
+                ),
+                Alert(
+                    alert_type="backup_failed",
+                    severity="WARNING",
+                    resource_type="backup",
+                    resource_id=str(backup.id),
+                    title="Filter Alpha",
+                    message="alpha",
+                ),
+                Alert(
+                    alert_type="restore_failed",
+                    severity="ERROR",
+                    resource_type="restore_task",
+                    resource_id="2",
+                    title="Filter Beta",
+                    message="beta",
+                ),
+                AuditLog(action="filter.alpha", resource_type="test", result="success"),
+                AuditLog(action="filter.beta", resource_type="test", result="failure"),
+            ]
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    databases = client.get("/api/v1/databases?name=beta&page_size=1", headers=admin_headers)
+    storages = client.get("/api/v1/storages?storage_type=s3&page_size=1", headers=admin_headers)
+    users = client.get("/api/v1/users?username=filter-user-beta&status=DISABLED&page_size=1", headers=admin_headers)
+    audit = client.get("/api/v1/audit-logs?action=filter.beta&result=failure&page_size=1", headers=admin_headers)
+    alerts = client.get("/api/v1/alerts?title=Beta&severity=ERROR&page_size=1", headers=admin_headers)
+    restores = client.get("/api/v1/restore-tasks?status=FAILED&page_size=1", headers=admin_headers)
+
+    assert s3_storage.status_code == 200, s3_storage.text
+    assert databases.json()["total"] == 1
+    assert databases.json()["items"][0]["name"] == "filter-beta"
+    assert storages.json()["total"] == 1
+    assert storages.json()["items"][0]["name"] == "filter-s3"
+    assert users.json()["total"] == 1
+    assert users.json()["items"][0]["username"] == "filter-user-beta"
+    assert audit.json()["total"] == 1
+    assert audit.json()["items"][0]["action"] == "filter.beta"
+    assert alerts.json()["total"] == 1
+    assert alerts.json()["items"][0]["title"] == "Filter Beta"
+    assert restores.json()["total"] == 1
+    assert restores.json()["items"][0]["status"] == "FAILED"
+
+
+def test_run_now_respects_job_concurrency(client, admin_headers, tmp_path):
+    from app.core.database import SessionLocal
+    from app.models import BackupTask, Job
+
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers)
+    job = client.post(
+        "/api/v1/jobs",
+        headers=admin_headers,
+        json={
+            "name": "non-concurrent",
+            "database_id": database_id,
+            "storage_id": storage_id,
+            "schedule_type": "INTERVAL",
+            "interval_seconds": 3600,
+            "allow_concurrent": False,
+            "backup_config": {"compression": "none"},
+        },
+    )
+    job_id = job.json()["id"]
+    db = SessionLocal()
+    try:
+        created_by = db.get(Job, job_id).created_by
+        task = BackupTask(
+            database_id=database_id,
+            storage_id=storage_id,
+            job_id=job_id,
+            status="RUNNING",
+            trigger_type="JOB",
+            config={},
+            created_by=created_by,
+        )
+        db.add(task)
+        db.flush()
+        db.get(Job, job_id).active_backup_task_id = task.id
+        db.commit()
+    finally:
+        db.close()
+
+    run_now = client.post(f"/api/v1/jobs/{job_id}/run-now", headers=admin_headers)
+    pending_backups = client.get("/api/v1/backups?status=PENDING", headers=admin_headers)
+    backups = client.get("/api/v1/backups", headers=admin_headers)
+
+    assert run_now.status_code == 400
+    assert run_now.json()["error"]["code"] == "JOB_ALREADY_RUNNING"
+    assert pending_backups.json()["total"] == 0
+    assert backups.json()["total"] == 0
+
+
+def test_delete_database_or_storage_rejects_enabled_jobs(client, admin_headers, tmp_path):
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers)
+    job = client.post(
+        "/api/v1/jobs",
+        headers=admin_headers,
+        json={
+            "name": "keeps-resources",
+            "database_id": database_id,
+            "storage_id": storage_id,
+            "schedule_type": "INTERVAL",
+            "interval_seconds": 3600,
+            "backup_config": {"compression": "none"},
+        },
+    )
+    job_id = job.json()["id"]
+
+    db_delete = client.delete(f"/api/v1/databases/{database_id}", headers=admin_headers)
+    storage_delete = client.delete(f"/api/v1/storages/{storage_id}", headers=admin_headers)
+    disabled = client.post(f"/api/v1/jobs/{job_id}/disable", headers=admin_headers)
+    db_delete_after_disable = client.delete(f"/api/v1/databases/{database_id}", headers=admin_headers)
+    storage_delete_after_disable = client.delete(f"/api/v1/storages/{storage_id}", headers=admin_headers)
+
+    assert db_delete.status_code == 400
+    assert db_delete.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert storage_delete.status_code == 400
+    assert storage_delete.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert disabled.status_code == 200
+    assert db_delete_after_disable.status_code == 200
+    assert storage_delete_after_disable.status_code == 200

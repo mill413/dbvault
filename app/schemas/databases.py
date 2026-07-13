@@ -66,6 +66,8 @@ class DatabaseRead(ORMModel):
     description: str | None = None
     connection_type: str = "direct"
     k8s_config: dict[str, Any] | None = None
+    created_by: int | None = None
+    created_by_username: str | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -29,6 +29,7 @@ class BackupRead(ORMModel):
     database_id: int
     storage_id: int
     backup_task_id: int | None = None
+    source_type: str
     backup_type: str
     status: str
     object_key: str
@@ -43,6 +44,9 @@ class BackupRead(ORMModel):
     started_at: datetime | None = None
     completed_at: datetime | None = None
     expires_at: datetime | None = None
+    created_by: int | None = None
+    created_by_username: str | None = None
+    verification: dict[str, Any] | None = None
     created_at: datetime
 
 
@@ -61,6 +65,8 @@ class BackupTaskRead(ORMModel):
     stderr_tail: str | None = None
     size_bytes: int | None = None
     duration_seconds: float | None = None
+    created_by: int | None = None
+    created_by_username: str | None = None
     created_at: datetime
     started_at: datetime | None = None
     ended_at: datetime | None = None
@@ -70,6 +76,7 @@ class VerifyResponse(BaseModel):
     ok: bool
     expected_sha256: str
     actual_sha256: str
+    verified_at: datetime
 
 
 class LifecycleCleanupResponse(BaseModel):

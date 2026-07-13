@@ -72,7 +72,7 @@ MVP 优先支持：
 | 恢复 | 下载恢复、恢复到新实例、原实例恢复需要强确认 |
 | 校验 | SHA256 必选，MD5 可选 |
 | 压缩 | zstd 默认，gzip 可选 |
-| 权限 | Admin、Operator、Viewer |
+| 权限 | Admin、User |
 | API | 完整 CRUD 和任务执行接口 |
 | 前端 | Vue3 + Element Plus 管理台 |
 
@@ -399,26 +399,25 @@ API 校验权限
 | 角色 | 说明 | 权限范围 |
 | --- | --- | --- |
 | Admin | 系统管理员 | 用户、存储、实例、备份、恢复、任务、审计全部权限 |
-| Operator | 运维操作员 | 实例查看、备份执行、恢复执行、任务管理、日志查看 |
-| Viewer | 只读用户 | 只允许查看实例、备份、任务、日志和统计 |
+| User | 普通用户 | 只允许管理自己创建的存储、实例、备份、恢复和任务 |
 
 ### 8.1.3 权限点设计
 
-| 权限点 | Admin | Operator | Viewer |
-| --- | --- | --- | --- |
-| user:read | 是 | 否 | 否 |
-| user:write | 是 | 否 | 否 |
-| database:read | 是 | 是 | 是 |
-| database:write | 是 | 是 | 否 |
-| backup:read | 是 | 是 | 是 |
-| backup:run | 是 | 是 | 否 |
-| backup:delete | 是 | 是 | 否 |
-| restore:run | 是 | 是 | 否 |
-| job:read | 是 | 是 | 是 |
-| job:write | 是 | 是 | 否 |
-| storage:read | 是 | 是 | 是 |
-| storage:write | 是 | 否 | 否 |
-| audit:read | 是 | 否 | 否 |
+| 权限点 | Admin | User |
+| --- | --- | --- |
+| user:read | 是 | 否 |
+| user:write | 是 | 否 |
+| database:read | 是 | 是 |
+| database:write | 是 | 是 |
+| backup:read | 是 | 是 |
+| backup:run | 是 | 是 |
+| backup:delete | 是 | 是 |
+| restore:run | 是 | 是 |
+| job:read | 是 | 是 |
+| job:write | 是 | 是 |
+| storage:read | 是 | 是 |
+| storage:write | 是 | 是 |
+| audit:read | 是 | 否 |
 
 ### 8.1.4 Token 设计
 
@@ -1749,7 +1748,7 @@ Authorization: Bearer <access_token>
 ### 13.5 恢复风险控制
 
 - 原实例恢复默认关闭，可通过配置启用。
-- 原实例恢复要求 Admin 或 Operator 权限。
+- 原实例恢复要求 Admin 或 User 权限，并受资源所有权限制。
 - 恢复操作必须写审计。
 - 恢复前必须校验备份文件。
 - 恢复任务必须记录目标实例。
@@ -2092,8 +2091,8 @@ Phase 2 引入 Celery 后：
 
 - 日志中不出现数据库密码。
 - API 不返回存储密钥。
-- Viewer 无法执行备份。
-- Viewer 无法执行恢复。
+- User 无法管理用户和审计日志。
+- User 无法访问其他用户创建的资源。
 - 无 Token 请求被拒绝。
 - 过期 Token 请求被拒绝。
 
@@ -2265,7 +2264,7 @@ dbvault/
 | 项目 | 标准 |
 | --- | --- |
 | 登录 | Admin 可登录并获取 Token |
-| 权限 | Viewer 无法执行备份和恢复 |
+| 权限 | User 无法访问其他用户创建的资源 |
 | 实例管理 | 可新增、编辑、删除、测试 MySQL/PostgreSQL 实例 |
 | 存储管理 | 可新增、测试 Local FS 和 MinIO |
 | 手动备份 | 可对 MySQL/PostgreSQL 发起立即备份 |

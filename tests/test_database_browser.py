@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from app.drivers.database.base import CommandResult
+from tests.test_ownership_isolation import create_owned_database, create_user_and_headers
 
 from .conftest import create_database_instance
 
@@ -59,3 +60,13 @@ def test_database_browser_validates_access_and_pagination(client, admin_headers)
 
     unauthorized = client.get(f"/api/v1/databases/{database_id}/browser/catalogs")
     assert unauthorized.status_code == 401
+
+
+def test_database_browser_hides_other_users_instances(client, admin_headers):
+    alice_headers = create_user_and_headers(client, admin_headers, "browser-alice")
+    bob_headers = create_user_and_headers(client, admin_headers, "browser-bob")
+    bob_database_id = create_owned_database(client, bob_headers, "browser-bob-db")
+
+    response = client.get(f"/api/v1/databases/{bob_database_id}/browser/catalogs", headers=alice_headers)
+
+    assert response.status_code == 404

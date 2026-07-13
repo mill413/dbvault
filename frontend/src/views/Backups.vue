@@ -12,6 +12,10 @@
               <el-option label="失败" value="FAILED" />
               <el-option label="待处理" value="PENDING" />
             </el-select>
+            <el-select v-model="filterSourceType" :placeholder="$t('backup.sourceFilter')" clearable style="width: 140px" @change="fetchData">
+              <el-option :label="$t('backup.sourceManual')" value="MANUAL" />
+              <el-option :label="$t('backup.sourceScheduled')" value="SCHEDULED" />
+            </el-select>
             <el-select v-model="filterDatabaseId" :placeholder="$t('backup.selectDb')" clearable style="width: 180px" @change="fetchData">
               <el-option v-for="db in databases" :key="db.id" :label="db.name" :value="db.id" />
             </el-select>
@@ -36,6 +40,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="backup_type" :label="$t('backup.type')" width="100" sortable />
+        <el-table-column prop="source_type" :label="$t('backup.source')" width="110" sortable>
+          <template #default="{ row }">
+            <el-tag size="small" effect="plain">{{ getSourceLabel(row.source_type) }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" :label="$t('common.status')" width="120" sortable>
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">{{ row.status }}</el-tag>
@@ -47,6 +56,24 @@
           </template>
         </el-table-column>
         <el-table-column prop="compression" :label="$t('backup.compression')" width="80" sortable />
+        <el-table-column prop="created_by_username" :label="$t('common.createdBy')" width="120" sortable>
+          <template #default="{ row }">
+            {{ row.created_by_username || (row.created_by ? `#${row.created_by}` : '-') }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('backup.verifyResult')" width="130">
+          <template #default="{ row }">
+            <template v-if="row.verification">
+              <el-tag :type="row.verification.ok ? 'success' : 'danger'" size="small">
+                {{ row.verification.ok ? $t('backup.verifyPassed') : $t('backup.verifyFailed') }}
+              </el-tag>
+              <el-button link type="primary" size="small" @click="showVerification(row)">
+                {{ $t('common.details') }}
+              </el-button>
+            </template>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" :label="$t('common.createTime')" width="180" sortable>
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
@@ -55,7 +82,7 @@
         <el-table-column :label="$t('common.actions')" width="200" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleVerify(row)" :disabled="row.status !== 'AVAILABLE'">{{ $t('backup.verify') }}</el-button>
-            <el-button size="small" type="primary" @click="handleDownload(row)">{{ $t('backup.download') }}</el-button>
+            <el-button size="small" type="primary" @click="handleDownload(row)" :disabled="row.status !== 'AVAILABLE'">{{ $t('backup.download') }}</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">{{ $t('common.delete') }}</el-button>
           </template>
         </el-table-column>
@@ -101,6 +128,25 @@
         <el-button type="primary" @click="handleBackup" :loading="backupLoading">{{ $t('backup.runBackup') }}</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="verifyDialogVisible" :title="$t('backup.verifyResult')" width="680px">
+      <el-descriptions v-if="currentVerification" :column="1" border>
+        <el-descriptions-item :label="$t('common.status')">
+          <el-tag :type="currentVerification.ok ? 'success' : 'danger'">
+            {{ currentVerification.ok ? $t('backup.verifyPassed') : $t('backup.verifyFailed') }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item :label="$t('backup.expectedSha256')">
+          <code>{{ currentVerification.expected_sha256 }}</code>
+        </el-descriptions-item>
+        <el-descriptions-item :label="$t('backup.actualSha256')">
+          <code>{{ currentVerification.actual_sha256 }}</code>
+        </el-descriptions-item>
+        <el-descriptions-item :label="$t('backup.verifiedAt')">
+          {{ formatTime(currentVerification.verified_at) }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </el-dialog>
   </div>
 </template>
 
@@ -120,12 +166,15 @@ const storages = ref([])
 const loading = ref(false)
 const backupLoading = ref(false)
 const backupDialogVisible = ref(false)
+const verifyDialogVisible = ref(false)
+const currentVerification = ref(null)
 const backupFormRef = ref(null)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const { t } = useI18n()
 const filterStatus = ref('')
+const filterSourceType = ref('')
 const filterDatabaseId = ref(null)
 
 const backupForm = reactive({
@@ -141,8 +190,16 @@ const backupRules = {
 }
 
 const getStatusType = (status) => {
-  const map = { COMPLETED: 'success', RUNNING: 'warning', FAILED: 'danger', PENDING: 'info' }
+  const map = { AVAILABLE: 'success', COMPLETED: 'success', RUNNING: 'warning', FAILED: 'danger', PENDING: 'info' }
   return map[status] || 'info'
+}
+
+const getSourceLabel = (sourceType) => {
+  const map = {
+    MANUAL: t('backup.sourceManual'),
+    SCHEDULED: t('backup.sourceScheduled'),
+  }
+  return map[sourceType] || sourceType || '-'
 }
 
 const getDatabaseName = (id) => {
@@ -166,6 +223,9 @@ const fetchData = async () => {
     const params = { page: page.value, page_size: pageSize.value }
     if (filterStatus.value) {
       params.status = filterStatus.value
+    }
+    if (filterSourceType.value) {
+      params.source_type = filterSourceType.value
     }
     if (filterDatabaseId.value) {
       params.database_id = filterDatabaseId.value
@@ -218,17 +278,26 @@ const handleBackup = async () => {
 
 const handleVerify = async (row) => {
   try {
-    await verifyBackup(row.id)
-    ElMessage.success(t('backup.verifySubmitted'))
+    const response = await verifyBackup(row.id)
+    row.verification = response.data
+    currentVerification.value = response.data
+    verifyDialogVisible.value = true
+    ElMessage.success(response.data.ok ? t('backup.verifyPassed') : t('backup.verifyFailed'))
   } catch (error) {
     console.error('Failed to verify:', error)
   }
 }
 
+const showVerification = (row) => {
+  currentVerification.value = row.verification
+  verifyDialogVisible.value = true
+}
+
 const handleDownload = async (row) => {
+  let url = ''
   try {
     const response = await downloadBackup(row.id)
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', row.filename)
@@ -237,6 +306,10 @@ const handleDownload = async (row) => {
     link.remove()
   } catch (error) {
     console.error('Failed to download:', error)
+  } finally {
+    if (url) {
+      window.URL.revokeObjectURL(url)
+    }
   }
 }
 
@@ -244,7 +317,7 @@ const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(t('backup.deleteConfirm', { name: row.filename }), t('common.confirm'), { type: 'warning' })
     await deleteBackup(row.id)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('common.deleteSuccess'))
     fetchData()
   } catch (error) {
     if (error !== 'cancel') {

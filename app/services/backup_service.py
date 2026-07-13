@@ -9,15 +9,16 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.core.ownership import ensure_owner
 from app.drivers.registry import registry
-from app.models import Backup, BackupTask, DatabaseInstance, Storage, User
+from app.models import Backup, BackupTask, DatabaseInstance, Job, Storage, User
 from app.services.alert_service import create_alert
 from app.services.audit_service import add_task_event
 from app.services.database_service import build_database_driver
 from app.services.lifecycle_service import calculate_expires_at
 from app.services.storage_service import build_storage_driver, get_default_storage, get_storage_usage
 from app.utils.checksum import file_checksum
-from app.utils.paths import build_backup_object_key
+from app.utils.paths import build_backup_object_key, safe_extension, safe_filename, safe_join
 
 
 def _check_storage_capacity(db: Session, storage: Storage, additional_bytes: int) -> None:
@@ -33,43 +34,145 @@ def _check_storage_capacity(db: Session, storage: Storage, additional_bytes: int
             resource_type="storage",
             resource_id=storage.id,
             title="Storage capacity limit exceeded",
-            message=f"Storage '{storage.name}' usage ({usage_pct}%) plus new backup ({additional_bytes} bytes) exceeds capacity limit ({storage.capacity_limit_bytes} bytes)",
+            message=(
+                f"Storage '{storage.name}' usage ({usage_pct}%) plus new backup "
+                f"({additional_bytes} bytes) exceeds capacity limit "
+                f"({storage.capacity_limit_bytes} bytes)"
+            ),
             dedupe_key=f"capacity:{storage.id}",
         )
 
 
-def create_backup_task(db: Session, payload, user: User, trigger_type: str = "MANUAL") -> BackupTask:
-    storage = db.get(Storage, payload.storage_id) if payload.storage_id else get_default_storage(db)
+def create_backup_task(
+    db: Session,
+    payload,
+    user: User,
+    trigger_type: str = "MANUAL",
+    job_id: int | None = None,
+) -> BackupTask:
+    storage = db.get(Storage, payload.storage_id) if payload.storage_id else get_default_storage(db, user=user)
     if not storage or storage.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    ensure_owner(storage, user, "Storage not found")
     instance = db.get(DatabaseInstance, payload.database_id)
     if not instance or instance.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(instance, user, "Database instance not found")
     task = BackupTask(
         database_id=instance.id,
         storage_id=storage.id,
         status="PENDING",
         trigger_type=trigger_type,
+        job_id=job_id,
         config=payload.model_dump(),
         created_by=user.id,
     )
     db.add(task)
     db.commit()
     db.refresh(task)
+    backup = Backup(
+        database_id=instance.id,
+        storage_id=storage.id,
+        backup_task_id=task.id,
+        backup_type="LOGICAL",
+        status=task.status,
+        object_key="",
+        filename=f"backup-task-{task.id}",
+        file_format="pending",
+        size_bytes=0,
+        compressed=payload.compression != "none",
+        compression=payload.compression if payload.compression != "none" else None,
+        sha256="",
+        expires_at=calculate_expires_at(payload.retention),
+        created_by=user.id,
+        extra_metadata={"source": "driver"},
+    )
+    db.add(backup)
+    db.commit()
     add_task_event(db, task_type="backup", task_id=task.id, level="INFO", message="Task created")
     return task
+
+
+def _clear_stale_job_slot(db: Session, job: Job) -> None:
+    if not job.active_backup_task_id:
+        return
+    task = db.get(BackupTask, job.active_backup_task_id)
+    if task and task.job_id == job.id and task.status in {"PENDING", "RUNNING"}:
+        return
+    job.active_backup_task_id = None
+    db.commit()
+
+
+def mark_task_backup_cancelled(db: Session, task: BackupTask) -> None:
+    backup = db.query(Backup).filter(Backup.backup_task_id == task.id).one_or_none()
+    if backup:
+        backup.status = "CANCELLED"
+        backup.completed_at = task.ended_at or datetime.now(UTC)
+
+
+def try_acquire_job_slot(db: Session, job: Job, task: BackupTask) -> bool:
+    if job.allow_concurrent:
+        return True
+    _clear_stale_job_slot(db, job)
+    updated = (
+        db.query(Job)
+        .filter(Job.id == job.id, Job.active_backup_task_id.is_(None))
+        .update({Job.active_backup_task_id: task.id}, synchronize_session=False)
+    )
+    if updated:
+        db.commit()
+        return True
+    task.status = "CANCELLED"
+    task.ended_at = datetime.now(UTC)
+    mark_task_backup_cancelled(db, task)
+    db.commit()
+    return False
+
+
+def _release_job_slot(db: Session, task: BackupTask) -> None:
+    if not task.job_id:
+        return
+    updated = (
+        db.query(Job)
+        .filter(Job.id == task.job_id, Job.active_backup_task_id == task.id)
+        .update({Job.active_backup_task_id: None}, synchronize_session=False)
+    )
+    if updated:
+        db.commit()
 
 
 def run_backup_task(db: Session, task_id: int) -> BackupTask:
     task = db.get(BackupTask, task_id)
     if not task:
         raise AppError("RESOURCE_NOT_FOUND", "Backup task not found", status_code=404)
+    if task.status == "CANCELLED":
+        return task
     settings = get_settings()
     start = monotonic()
-    task.status = "RUNNING"
-    task.phase = "DUMPING"
-    task.progress = 5
-    task.started_at = datetime.now(UTC)
+    started_at = datetime.now(UTC)
+    claimed = (
+        db.query(BackupTask)
+        .filter(BackupTask.id == task_id, BackupTask.status == "PENDING")
+        .update(
+            {
+                BackupTask.status: "RUNNING",
+                BackupTask.phase: "DUMPING",
+                BackupTask.progress: 5,
+                BackupTask.started_at: started_at,
+            },
+            synchronize_session=False,
+        )
+    )
+    if not claimed:
+        db.rollback()
+        db.refresh(task)
+        return task
+    db.commit()
+    db.refresh(task)
+    backup = db.query(Backup).filter(Backup.backup_task_id == task.id).first()
+    if backup:
+        backup.status = "RUNNING"
+        backup.started_at = task.started_at
     db.commit()
     add_task_event(db, task_type="backup", task_id=task.id, level="INFO", phase="DUMPING", message="Dump started")
 
@@ -118,31 +221,48 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
         sha256 = file_checksum(compressed_file, "sha256")
         md5 = file_checksum(compressed_file, "md5") if "md5" in task.config.get("checksum", []) else None
 
-        backup = Backup(
-            database_id=instance.id,
-            storage_id=storage.id,
-            backup_task_id=task.id,
-            backup_type="LOGICAL",
-            status="UPLOADING",
-            object_key="pending",
-            filename=compressed_file.name,
-            file_format=backup_result.file_format,
-            size_bytes=compressed_file.stat().st_size,
-            compressed=compressed,
-            compression=compression_name if compressed else None,
-            md5=md5,
-            sha256=sha256,
-            database_version=backup_result.database_version,
-            started_at=task.started_at,
-            expires_at=calculate_expires_at(task.config.get("retention", {})),
-            created_by=task.created_by,
-            extra_metadata={"source": "driver"},
-        )
-        db.add(backup)
-        db.commit()
-        db.refresh(backup)
+        backup = db.query(Backup).filter(Backup.backup_task_id == task.id).first()
+        if not backup:
+            backup = Backup(
+                database_id=instance.id,
+                storage_id=storage.id,
+                backup_task_id=task.id,
+                backup_type="LOGICAL",
+                status="UPLOADING",
+                object_key="pending",
+                filename=compressed_file.name,
+                file_format=backup_result.file_format,
+                size_bytes=compressed_file.stat().st_size,
+                compressed=compressed,
+                compression=compression_name if compressed else None,
+                md5=md5,
+                sha256=sha256,
+                database_version=backup_result.database_version,
+                started_at=task.started_at,
+                expires_at=calculate_expires_at(task.config.get("retention", {})),
+                created_by=task.created_by,
+                extra_metadata={"source": "driver"},
+            )
+            db.add(backup)
+            db.commit()
+            db.refresh(backup)
+        else:
+            backup.status = "UPLOADING"
+            backup.object_key = "pending"
+            backup.filename = compressed_file.name
+            backup.file_format = backup_result.file_format
+            backup.size_bytes = compressed_file.stat().st_size
+            backup.compressed = compressed
+            backup.compression = compression_name if compressed else None
+            backup.md5 = md5
+            backup.sha256 = sha256
+            backup.database_version = backup_result.database_version
+            backup.started_at = task.started_at
+            backup.expires_at = calculate_expires_at(task.config.get("retention", {}))
+            db.commit()
+            db.refresh(backup)
 
-        extension = compressed_file.name.split(".", 1)[1] if "." in compressed_file.name else compressed_file.suffix
+        extension = safe_extension(compressed_file.name)
         object_key = build_backup_object_key(
             instance.db_type,
             instance.environment,
@@ -172,6 +292,7 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
         task.ended_at = datetime.now(UTC)
         db.commit()
         add_task_event(db, task_type="backup", task_id=task.id, level="INFO", message="Backup completed")
+        _release_job_slot(db, task)
         db.refresh(task)
         return task
     except Exception as exc:
@@ -180,6 +301,10 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
         task.error_message = exc.message if isinstance(exc, AppError) else str(exc)
         task.ended_at = datetime.now(UTC)
         task.duration_seconds = round(monotonic() - start, 3)
+        backup = db.query(Backup).filter(Backup.backup_task_id == task.id).first()
+        if backup:
+            backup.status = "FAILED"
+            backup.completed_at = task.ended_at
         db.commit()
         add_task_event(
             db,
@@ -199,6 +324,7 @@ def run_backup_task(db: Session, task_id: int) -> BackupTask:
             message=task.error_message or "Backup task failed",
             dedupe_key=f"backup:{task.database_id}:{task.error_code}",
         )
+        _release_job_slot(db, task)
         return task
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
@@ -217,9 +343,11 @@ def upload_backup_file(
     instance = db.get(DatabaseInstance, database_id)
     if not instance or instance.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
-    storage = db.get(Storage, storage_id) if storage_id else get_default_storage(db)
+    storage = db.get(Storage, storage_id) if storage_id else get_default_storage(db, user=user)
     if not storage or storage.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
+    ensure_owner(storage, user, "Storage not found")
+    ensure_owner(instance, user, "Database instance not found")
     settings.backup_tmp_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(delete=False, dir=settings.backup_tmp_dir) as tmp:
         shutil.copyfileobj(file.file, tmp)
@@ -233,8 +361,8 @@ def upload_backup_file(
             backup_type="UPLOAD",
             status="UPLOADING",
             object_key="pending",
-            filename=file.filename or local_path.name,
-            file_format=(file.filename or "backup").split(".")[-1],
+            filename=safe_filename(file.filename, local_path.name),
+            file_format=safe_extension(file.filename, "backup"),
             size_bytes=local_path.stat().st_size,
             compressed=compression != "none",
             compression=compression if compression != "none" else None,
@@ -247,7 +375,7 @@ def upload_backup_file(
         db.add(backup)
         db.commit()
         db.refresh(backup)
-        extension = backup.filename.split(".", 1)[1] if "." in backup.filename else backup.file_format
+        extension = safe_extension(backup.filename or backup.file_format)
         object_key = build_backup_object_key(
             instance.db_type,
             instance.environment,
@@ -273,14 +401,36 @@ def verify_backup(db: Session, backup: Backup) -> dict:
         raise AppError("RESOURCE_NOT_FOUND", "Storage not found", status_code=404)
     settings = get_settings()
     settings.backup_tmp_dir.mkdir(parents=True, exist_ok=True)
-    local_path = settings.backup_tmp_dir / f"verify-{backup.id}-{backup.filename}"
+    verify_name = f"verify-{backup.id}-{safe_filename(backup.filename)}"
+    local_path = safe_join(settings.backup_tmp_dir, verify_name)
     try:
         build_storage_driver(storage).download(backup.object_key, local_path)
         actual = file_checksum(local_path, "sha256")
         ok = actual == backup.sha256
+        result = {
+            "ok": ok,
+            "expected_sha256": backup.sha256,
+            "actual_sha256": actual,
+            "verified_at": datetime.now(UTC).isoformat(),
+        }
+        backup.extra_metadata = {**(backup.extra_metadata or {}), "verification": result}
         if not ok:
             backup.status = "VERIFY_FAILED"
-            db.commit()
-        return {"ok": ok, "expected_sha256": backup.sha256, "actual_sha256": actual}
+        db.commit()
+        return result
     finally:
         local_path.unlink(missing_ok=True)
+
+
+def delete_backup_record(db: Session, backup: Backup) -> Backup:
+    if backup.backup_task and backup.backup_task.status in {"PENDING", "RUNNING"}:
+        raise AppError("VALIDATION_ERROR", "Backup is still running and cannot be deleted", status_code=400)
+    backup.status = "DELETING"
+    db.commit()
+    if backup.object_key and backup.object_key != "pending":
+        build_storage_driver(backup.storage).delete(backup.object_key)
+    backup.status = "DELETED"
+    backup.deleted_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(backup)
+    return backup

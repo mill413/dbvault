@@ -32,7 +32,7 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    username: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(128))
     email: Mapped[str | None] = mapped_column(String(255))
@@ -40,13 +40,14 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
 class DatabaseInstance(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "database_instances"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     db_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     host: Mapped[str] = mapped_column(String(255), nullable=False)
     port: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -62,20 +63,28 @@ class DatabaseInstance(Base, TimestampMixin, SoftDeleteMixin):
     connection_type: Mapped[str] = mapped_column(String(32), default="direct", nullable=False)
     k8s_config: Mapped[dict | None] = mapped_column(JSON)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
 
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
 
 class Storage(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "storages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     storage_type: Mapped[str] = mapped_column(String(32), nullable=False)
     config_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE", nullable=False)
     capacity_limit_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
 
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
 
 class Backup(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "backups"
@@ -83,7 +92,7 @@ class Backup(Base, TimestampMixin, SoftDeleteMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     database_id: Mapped[int] = mapped_column(ForeignKey("database_instances.id"), nullable=False)
     storage_id: Mapped[int] = mapped_column(ForeignKey("storages.id"), nullable=False)
-    backup_task_id: Mapped[int | None] = mapped_column(ForeignKey("backup_tasks.id"))
+    backup_task_id: Mapped[int | None] = mapped_column(ForeignKey("backup_tasks.id"), unique=True)
     backup_type: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     object_key: Mapped[str] = mapped_column(Text, nullable=False)
@@ -103,6 +112,22 @@ class Backup(Base, TimestampMixin, SoftDeleteMixin):
 
     database: Mapped[DatabaseInstance] = relationship()
     storage: Mapped[Storage] = relationship()
+    backup_task: Mapped["BackupTask | None"] = relationship()
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
+
+    @property
+    def source_type(self) -> str:
+        if self.backup_task and self.backup_task.trigger_type == "JOB":
+            return "SCHEDULED"
+        return "MANUAL"
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
+
+    @property
+    def verification(self) -> dict | None:
+        return (self.extra_metadata or {}).get("verification")
 
 
 class BackupTask(Base, TimestampMixin):
@@ -129,6 +154,11 @@ class BackupTask(Base, TimestampMixin):
 
     database: Mapped[DatabaseInstance] = relationship()
     storage: Mapped[Storage] = relationship()
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
 
 
 class RestoreTask(Base, TimestampMixin):
@@ -158,6 +188,11 @@ class RestoreTask(Base, TimestampMixin):
     target_database: Mapped[DatabaseInstance | None] = relationship(
         foreign_keys=[target_database_id]
     )
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
 
 
 class Job(Base, TimestampMixin, SoftDeleteMixin):
@@ -180,10 +215,18 @@ class Job(Base, TimestampMixin, SoftDeleteMixin):
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_status: Mapped[str | None] = mapped_column(String(32))
     skipped_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    active_backup_task_id: Mapped[int | None] = mapped_column(
+        ForeignKey("backup_tasks.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
     database: Mapped[DatabaseInstance] = relationship()
     storage: Mapped[Storage] = relationship()
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
 
 
 class AuditLog(Base):
@@ -230,4 +273,3 @@ class Alert(Base):
     dedupe_key: Mapped[str | None] = mapped_column(String(255), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-

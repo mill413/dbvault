@@ -4,7 +4,7 @@ from pathlib import Path
 from app.core.database import SessionLocal
 from app.drivers.database.base import CommandResult
 from app.drivers.registry import registry
-from app.models import Backup
+from app.models import Backup, RestoreTask
 from tests.conftest import create_database_instance, create_local_storage
 
 
@@ -96,6 +96,145 @@ def test_original_instance_restore_requires_confirmation(client, admin_headers, 
     assert task.json()["status"] == "SUCCESS"
 
 
+def test_new_instance_restore_requires_explicit_target(client, admin_headers, tmp_path):
+    registry.register_database("mysql", SuccessfulRestoreDriver)
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers, name="source")
+    backup_id = _upload_backup(client, admin_headers, database_id, storage_id)
+
+    response = client.post(
+        "/api/v1/restore/run",
+        headers=admin_headers,
+        json={"backup_id": backup_id, "restore_mode": "NEW_INSTANCE"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_restore_rejects_cross_database_type_target(client, admin_headers, tmp_path):
+    registry.register_database("mysql", SuccessfulRestoreDriver)
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    source_id = create_database_instance(client, admin_headers, name="source")
+    target = client.post(
+        "/api/v1/databases",
+        headers=admin_headers,
+        json={
+            "name": "postgres-target",
+            "db_type": "postgresql",
+            "host": "127.0.0.1",
+            "port": 5432,
+            "username": "backup",
+            "password": "database-password",
+            "database_name": "orders",
+            "environment": "test",
+            "tags": ["orders"],
+        },
+    )
+    backup_id = _upload_backup(client, admin_headers, source_id, storage_id)
+
+    dry_run = client.post(
+        "/api/v1/restore/dry-run",
+        headers=admin_headers,
+        json={"backup_id": backup_id, "target_database_id": target.json()["id"], "restore_mode": "NEW_INSTANCE"},
+    )
+    response = client.post(
+        "/api/v1/restore/run",
+        headers=admin_headers,
+        json={"backup_id": backup_id, "target_database_id": target.json()["id"], "restore_mode": "NEW_INSTANCE"},
+    )
+
+    assert target.status_code == 200, target.text
+    assert dry_run.status_code == 200
+    assert dry_run.json()["ok"] is False
+    assert dry_run.json()["checks"]["target_type_matches"] is False
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_restore_rejects_busy_target_database(client, admin_headers, tmp_path):
+    registry.register_database("mysql", SuccessfulRestoreDriver)
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    source_id = create_database_instance(client, admin_headers, name="source")
+    target_id = create_database_instance(client, admin_headers, name="target")
+    backup_id = _upload_backup(client, admin_headers, source_id, storage_id)
+    db = SessionLocal()
+    try:
+        db.add(
+            RestoreTask(
+                backup_id=backup_id,
+                source_database_id=source_id,
+                target_database_id=target_id,
+                restore_mode="NEW_INSTANCE",
+                status="RUNNING",
+                created_by=None,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    dry_run = client.post(
+        "/api/v1/restore/dry-run",
+        headers=admin_headers,
+        json={"backup_id": backup_id, "target_database_id": target_id, "restore_mode": "NEW_INSTANCE"},
+    )
+    response = client.post(
+        "/api/v1/restore/run",
+        headers=admin_headers,
+        json={"backup_id": backup_id, "target_database_id": target_id, "restore_mode": "NEW_INSTANCE"},
+    )
+
+    assert dry_run.status_code == 200
+    assert dry_run.json()["ok"] is False
+    assert dry_run.json()["checks"]["target_not_busy"] is False
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "RESTORE_TARGET_BUSY"
+
+
+def test_unknown_restore_mode_is_rejected_before_task_creation(client, admin_headers, tmp_path):
+    registry.register_database("mysql", SuccessfulRestoreDriver)
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    database_id = create_database_instance(client, admin_headers, name="source")
+    backup_id = _upload_backup(client, admin_headers, database_id, storage_id)
+
+    response = client.post(
+        "/api/v1/restore/run",
+        headers=admin_headers,
+        json={
+            "backup_id": backup_id,
+            "target_database_id": database_id,
+            "restore_mode": "TYPO",
+        },
+    )
+    tasks = client.get("/api/v1/restore-tasks", headers=admin_headers)
+
+    assert response.status_code == 422
+    assert tasks.json()["total"] == 0
+
+
+def test_original_instance_restore_rejects_different_target(client, admin_headers, tmp_path):
+    registry.register_database("mysql", SuccessfulRestoreDriver)
+    storage_id = create_local_storage(client, admin_headers, tmp_path / "backups")
+    source_id = create_database_instance(client, admin_headers, name="source")
+    target_id = create_database_instance(client, admin_headers, name="target")
+    backup_id = _upload_backup(client, admin_headers, source_id, storage_id)
+
+    response = client.post(
+        "/api/v1/restore/run",
+        headers=admin_headers,
+        json={
+            "backup_id": backup_id,
+            "target_database_id": target_id,
+            "restore_mode": "ORIGINAL_INSTANCE",
+            "confirm_text": "restore source",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 def test_restore_checksum_mismatch_blocks_restore_and_alerts(client, admin_headers, tmp_path):
     registry.register_database("mysql", RestoreShouldNotRunDriver)
     storage_root = tmp_path / "backups"
@@ -121,4 +260,3 @@ def test_restore_checksum_mismatch_blocks_restore_and_alerts(client, admin_heade
     assert task.json()["error_code"] == "CHECKSUM_MISMATCH"
     assert alerts.json()["total"] == 1
     assert alerts.json()["items"][0]["alert_type"] == "RESTORE_FAILED"
-

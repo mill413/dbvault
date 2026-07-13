@@ -2,18 +2,17 @@ services:
   api:
     image: dbvault-api:latest
     network_mode: host
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
-      DBVAULT_ENV: dev
-      DBVAULT_DATABASE_URL: postgresql+psycopg://dbvault:dbvault@127.0.0.1:15432/dbvault
+      DBVAULT_ENV: prod
+      DBVAULT_DATABASE_URL: postgresql+psycopg://dbvault:${DBVAULT_POSTGRES_PASSWORD:?set DBVAULT_POSTGRES_PASSWORD}@127.0.0.1:15432/dbvault
       DBVAULT_REDIS_URL: redis://127.0.0.1:16379/0
-      DBVAULT_JWT_SECRET: local-development-secret
+      DBVAULT_JWT_SECRET: ${DBVAULT_JWT_SECRET:?set DBVAULT_JWT_SECRET}
+      DBVAULT_ENCRYPTION_KEY: ${DBVAULT_ENCRYPTION_KEY:?set DBVAULT_ENCRYPTION_KEY}
       DBVAULT_BACKUP_TMP_DIR: /var/lib/dbvault/tmp
       DBVAULT_LOCAL_STORAGE_ROOT: /var/lib/dbvault/backups
       DBVAULT_KUBECONFIG_DIR: /var/lib/dbvault/kubeconfigs
-      DBVAULT_ENABLE_REGISTRATION: "true"
+      DBVAULT_ENABLE_REGISTRATION: ${DBVAULT_ENABLE_REGISTRATION:-false}
     volumes:
-      - ..:/app
       - dbvault-data:/var/lib/dbvault
     depends_on:
       - postgres
@@ -23,12 +22,6 @@ services:
   frontend:
     image: dbvault-frontend:latest
     network_mode: host
-    command: npm run dev -- --host 0.0.0.0 --port 5173
-    environment:
-      VITE_API_PROXY_TARGET: http://127.0.0.1:8000
-    volumes:
-      - ../frontend:/app
-      - /app/node_modules
     depends_on:
       - api
 
@@ -39,7 +32,7 @@ services:
     environment:
       POSTGRES_DB: dbvault
       POSTGRES_USER: dbvault
-      POSTGRES_PASSWORD: dbvault
+      POSTGRES_PASSWORD: ${DBVAULT_POSTGRES_PASSWORD:?set DBVAULT_POSTGRES_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
@@ -48,36 +41,56 @@ services:
     network_mode: host
     command: redis-server --port 16379
 
-  # minio:
-  #   image: minio/minio:latest
-  #   network_mode: host
-  #   command: server /data --console-address ":9001"
-  #   environment:
-  #     MINIO_ROOT_USER: minioadmin
-  #     MINIO_ROOT_PASSWORD: minioadmin
-  #   volumes:
-  #     - minio-data:/data
+  minio:
+    image: minio/minio:latest
+    profiles: ["integration"]
+    network_mode: host
+    command: server /data --address ":${DBVAULT_IT_MINIO_PORT:-19000}" --console-address ":${DBVAULT_IT_MINIO_CONSOLE_PORT:-19001}"
+    environment:
+      MINIO_ROOT_USER: ${DBVAULT_IT_MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${DBVAULT_IT_MINIO_SECRET_KEY:-minioadmin}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:${DBVAULT_IT_MINIO_PORT:-19000}/minio/health/live"]
+      interval: 2s
+      timeout: 3s
+      retries: 45
+    volumes:
+      - minio-data:/data
 
-  # mysql-source:
-  #   image: mysql:8.4
-  #   network_mode: host
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: root-password
-  #     MYSQL_DATABASE: orders
-  #     MYSQL_USER: backup
-  #     MYSQL_PASSWORD: backup-password
-  #   volumes:
-  #     - mysql-source-data:/var/lib/mysql
+  mysql-source:
+    image: mysql:8.4
+    profiles: ["integration"]
+    network_mode: host
+    command: --port=${DBVAULT_IT_MYSQL_PORT:-13306} --bind-address=0.0.0.0 --mysql-native-password=ON
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DBVAULT_IT_MYSQL_ROOT_PASSWORD:-root-password}
+      MYSQL_DATABASE: orders
+      MYSQL_USER: ${DBVAULT_IT_MYSQL_USER:-backup}
+      MYSQL_PASSWORD: ${DBVAULT_IT_MYSQL_PASSWORD:-backup-password}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -P ${DBVAULT_IT_MYSQL_PORT:-13306} -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 2s
+      timeout: 3s
+      retries: 45
+    volumes:
+      - mysql-source-data:/var/lib/mysql
 
-  # postgres-source:
-  #   image: postgres:16
-  #   network_mode: host
-  #   environment:
-  #     POSTGRES_DB: reports
-  #     POSTGRES_USER: backup
-  #     POSTGRES_PASSWORD: backup-password
-  #   volumes:
-  #     - postgres-source-data:/var/lib/postgresql/data
+  postgres-source:
+    image: postgres:16
+    profiles: ["integration"]
+    network_mode: host
+    command: postgres -p ${DBVAULT_IT_POSTGRES_PORT:-15433}
+    environment:
+      POSTGRES_DB: reports
+      POSTGRES_USER: ${DBVAULT_IT_POSTGRES_USER:-backup}
+      POSTGRES_PASSWORD: ${DBVAULT_IT_POSTGRES_PASSWORD:-backup-password}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p ${DBVAULT_IT_POSTGRES_PORT:-15433} -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 2s
+      timeout: 3s
+      retries: 45
+    volumes:
+      - postgres-source-data:/var/lib/postgresql/data
 
 volumes:
   dbvault-data:

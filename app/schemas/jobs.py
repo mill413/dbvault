@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.common import ORMModel
 
@@ -12,7 +12,7 @@ class JobCreate(BaseModel):
     storage_id: int
     schedule_type: str
     cron_expr: str | None = None
-    interval_seconds: int | None = None
+    interval_seconds: int | None = Field(default=None, ge=5)
     run_at: datetime | None = None
     timezone: str = "Asia/Shanghai"
     enabled: bool = True
@@ -25,7 +25,7 @@ class JobUpdate(BaseModel):
     name: str | None = None
     schedule_type: str | None = None
     cron_expr: str | None = None
-    interval_seconds: int | None = None
+    interval_seconds: int | None = Field(default=None, ge=5)
     run_at: datetime | None = None
     timezone: str | None = None
     enabled: bool | None = None
@@ -52,6 +52,7 @@ class JobRead(ORMModel):
     next_run_at: datetime | None = None
     last_status: str | None = None
     skipped_count: int
+    created_by: int | None = None
+    created_by_username: str | None = None
     created_at: datetime
     updated_at: datetime
-

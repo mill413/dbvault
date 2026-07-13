@@ -3,7 +3,8 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.models import Backup, DatabaseInstance, Storage
+from app.core.ownership import owner_filter
+from app.models import Backup, DatabaseInstance, Storage, User
 from app.services.audit_service import add_task_event
 from app.services.storage_service import build_storage_driver
 
@@ -17,18 +18,17 @@ def calculate_expires_at(retention: dict) -> datetime | None:
     return datetime.now(UTC) + timedelta(days=int(days))
 
 
-def expired_backup_candidates(db: Session) -> list[Backup]:
+def expired_backup_candidates(db: Session, user: User | None = None) -> list[Backup]:
     now = datetime.now(UTC)
-    return (
-        db.query(Backup)
-        .filter(
-            Backup.deleted_at.is_(None),
-            Backup.status == "AVAILABLE",
-            Backup.expires_at.is_not(None),
-            Backup.expires_at <= now,
-        )
-        .all()
+    query = db.query(Backup).filter(
+        Backup.deleted_at.is_(None),
+        Backup.status == "AVAILABLE",
+        Backup.expires_at.is_not(None),
+        Backup.expires_at <= now,
     )
+    if user is not None:
+        query = owner_filter(query, Backup, user)
+    return query.all()
 
 
 def latest_successful_backup(db: Session, instance: DatabaseInstance) -> Backup | None:
@@ -44,8 +44,8 @@ def latest_successful_backup(db: Session, instance: DatabaseInstance) -> Backup 
     )
 
 
-def run_lifecycle_cleanup(db: Session, *, dry_run: bool = False) -> dict:
-    candidates = expired_backup_candidates(db)
+def run_lifecycle_cleanup(db: Session, *, dry_run: bool = False, user: User | None = None) -> dict:
+    candidates = expired_backup_candidates(db, user=user)
     deleted: list[int] = []
     failed: list[dict] = []
     for backup in candidates:

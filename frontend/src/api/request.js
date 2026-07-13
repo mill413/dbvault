@@ -20,11 +20,18 @@ api.interceptors.response.use(
   (error) => {
     const method = (error.config?.method || 'get').toLowerCase()
     const silent = error.config?.silent === true || method === 'get'
+    const requestUrl = error.config?.url || ''
+    const isLoginRequest = requestUrl.endsWith('/auth/login')
     if (error.response) {
       const { status, data } = error.response
       if (status === 401) {
+        if (isLoginRequest) {
+          if (!silent) ElMessage.error(data?.error?.message || data?.detail || 'Invalid username or password')
+          return Promise.reject(error)
+        }
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
+        window.dispatchEvent(new Event('dbvault:auth-cleared'))
         router.push('/login')
         if (!silent) ElMessage.warning('Session expired. Please sign in again.')
       } else if (status === 403) {

@@ -114,7 +114,7 @@ const validateConfirmPassword = (rule, value, callback) => {
 
 const rules = {
   username: [{ required: true, message: t('user.usernameRequired'), trigger: 'blur' }, { min: 3, max: 64, message: '3-64 characters', trigger: 'blur' }],
-  password: [{ validator: createPasswordValidator(t), trigger: 'blur' }],
+  password: [{ required: true, validator: createPasswordValidator(t), trigger: 'blur' }],
   confirmPassword: [{ required: true, message: t('user.passwordRequired'), trigger: 'blur' }, { validator: validateConfirmPassword, trigger: 'blur' }],
 }
 

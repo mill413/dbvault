@@ -126,13 +126,17 @@
 import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import dayjs from 'dayjs'
 import { useI18n } from 'vue-i18n'
-import * as echarts from 'echarts'
+import { LineChart, PieChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import { graphic, init, use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
 import { getDashboardSummary, getBackupTrends, getAlerts, getStorageUsage } from '../api/common'
 import { getBackups } from '../api/backups'
 import { getAllStorageCapacity } from '../api/storages'
 import { getDatabases } from '../api/databases'
-import { useAuthStore } from '../stores/auth'
 import { formatBytes } from '../utils/format'
+
+use([CanvasRenderer, GridComponent, LegendComponent, LineChart, PieChart, TooltipComponent])
 
 const stats = ref({})
 const recentBackups = ref([])
@@ -170,7 +174,7 @@ const getSeverityType = (severity) => {
 
 const initTrendChart = (data) => {
   if (!trendChartRef.value) return
-  trendChart = echarts.init(trendChartRef.value)
+  trendChart = init(trendChartRef.value)
   
   const dates = data.map(item => item.date)
   const success = data.map(item => item.success_count)
@@ -186,13 +190,13 @@ const initTrendChart = (data) => {
       {
         name: 'Success', type: 'line', smooth: true,
         lineStyle: { width: 3, color: '#00e676' },
-        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(0, 230, 118, 0.3)' }, { offset: 1, color: 'rgba(0, 230, 118, 0.05)' }]) },
+        areaStyle: { color: new graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(0, 230, 118, 0.3)' }, { offset: 1, color: 'rgba(0, 230, 118, 0.05)' }]) },
         data: success
       },
       {
         name: 'Failed', type: 'line', smooth: true,
         lineStyle: { width: 3, color: '#f1416c' },
-        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(241, 65, 108, 0.3)' }, { offset: 1, color: 'rgba(241, 65, 108, 0.05)' }]) },
+        areaStyle: { color: new graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(241, 65, 108, 0.3)' }, { offset: 1, color: 'rgba(241, 65, 108, 0.05)' }]) },
         data: failed
       }
     ]
@@ -202,7 +206,7 @@ const initTrendChart = (data) => {
 
 const initStorageChart = (data) => {
   if (!storageChartRef.value) return
-  storageChart = echarts.init(storageChartRef.value)
+  storageChart = init(storageChartRef.value)
   
   const chartData = data && data.length > 0 ? data.map(item => ({ name: item.storage_name, value: item.used_bytes })) : [{ name: 'No Data', value: 0 }]
 
@@ -255,7 +259,7 @@ onMounted(async () => {
   }
 
   try {
-    const dbsRes = await getDatabases({ page_size: 999 })
+    const dbsRes = await getDatabases({ page_size: 100 })
     const dbs = dbsRes.data.items || []
     const map = {}
     dbs.forEach(db => { map[db.id] = db.name })

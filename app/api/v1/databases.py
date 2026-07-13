@@ -1,13 +1,18 @@
+import json
+import os
 from datetime import UTC, datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.api.pagination import Pagination, pagination_params
 from app.core.database import get_db
 from app.core.errors import AppError
+from app.core.ownership import ensure_owner, is_admin, owner_filter
 from app.drivers.database.k8s import list_namespaces, list_pods
-from app.models import DatabaseInstance, User
+from app.models import DatabaseInstance, Job, User
 from app.schemas.browser import CatalogRead, ColumnRead, RowPage, TableRead
 from app.schemas.common import Message, Page
 from app.schemas.databases import (
@@ -27,11 +32,30 @@ from app.services.database_service import (
 
 router = APIRouter()
 
+KUBECONFIG_DIR = Path(os.getenv("DBVAULT_KUBECONFIG_DIR", "/var/lib/dbvault/kubeconfigs"))
 
-def _browser(db: Session, database_id: int) -> DatabaseBrowser:
+
+def _ensure_kubeconfig_access(kubeconfig: str | None, user: User) -> None:
+    if not kubeconfig or is_admin(user):
+        return
+    path = Path(kubeconfig).resolve()
+    root = KUBECONFIG_DIR.resolve()
+    if not path.is_relative_to(root):
+        raise AppError("RESOURCE_NOT_FOUND", "Kubeconfig not found", status_code=404)
+    metadata_path = path.with_suffix(path.suffix + ".meta.json")
+    try:
+        owner_id = json.loads(metadata_path.read_text(encoding="utf-8")).get("created_by")
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        owner_id = None
+    if owner_id != user.id:
+        raise AppError("RESOURCE_NOT_FOUND", "Kubeconfig not found", status_code=404)
+
+
+def _browser(db: Session, database_id: int, user: User) -> DatabaseBrowser:
     item = db.get(DatabaseInstance, database_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(item, user, "Database instance not found")
     return DatabaseBrowser(item)
 
 
@@ -39,9 +63,9 @@ def _browser(db: Session, database_id: int) -> DatabaseBrowser:
 def list_browser_catalogs(
     database_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
-    return _browser(db, database_id).list_catalogs()
+    return _browser(db, database_id, user).list_catalogs()
 
 
 @router.get("/{database_id}/browser/tables", response_model=list[TableRead])
@@ -49,9 +73,9 @@ def list_browser_tables(
     database_id: int,
     catalog: str,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
-    return _browser(db, database_id).list_tables(catalog)
+    return _browser(db, database_id, user).list_tables(catalog)
 
 
 @router.get("/{database_id}/browser/columns", response_model=list[ColumnRead])
@@ -61,9 +85,9 @@ def list_browser_columns(
     schema: str,
     table: str,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
-    return _browser(db, database_id).list_columns(catalog, schema, table)
+    return _browser(db, database_id, user).list_columns(catalog, schema, table)
 
 
 @router.get("/{database_id}/browser/rows", response_model=RowPage)
@@ -75,30 +99,38 @@ def list_browser_rows(
     page: int = 1,
     page_size: int = 20,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
     if page < 1 or page_size < 1 or page_size > 100:
         raise AppError("INVALID_PAGINATION", "page must be positive and page_size must be between 1 and 100", 400)
-    return _browser(db, database_id).get_rows(catalog, schema, table, page, page_size)
+    return _browser(db, database_id, user).get_rows(catalog, schema, table, page, page_size)
 
 
 @router.get("", response_model=Page[DatabaseRead])
 def list_databases(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
+    name: str | None = None,
     db_type: str | None = None,
     environment: str | None = None,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
     query = db.query(DatabaseInstance).filter(DatabaseInstance.deleted_at.is_(None))
+    query = owner_filter(query, DatabaseInstance, user)
+    if name:
+        query = query.filter(DatabaseInstance.name.ilike(f"%{name}%"))
     if db_type:
         query = query.filter(DatabaseInstance.db_type == db_type.lower())
     if environment:
         query = query.filter(DatabaseInstance.environment == environment)
     total = query.count()
-    items = query.order_by(DatabaseInstance.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": items, "page": page, "page_size": page_size, "total": total}
+    items = (
+        query.order_by(DatabaseInstance.id.desc())
+        .offset((pagination.page - 1) * pagination.page_size)
+        .limit(pagination.page_size)
+        .all()
+    )
+    return {"items": items, "page": pagination.page, "page_size": pagination.page_size, "total": total}
 
 
 @router.post("", response_model=DatabaseRead)
@@ -108,6 +140,8 @@ def create_database_endpoint(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("database:write")),
 ):
+    if payload.k8s_config:
+        _ensure_kubeconfig_access(payload.k8s_config.kubeconfig, user)
     item = create_database(db, payload, user)
     create_audit_log(
         db,
@@ -126,6 +160,8 @@ def test_temporary_database(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("database:write")),
 ):
+    if payload.k8s_config:
+        _ensure_kubeconfig_access(payload.k8s_config.kubeconfig, user)
     item = create_database(db, payload, user)
     result = test_database_connection(item)
     item.deleted_at = datetime.now(UTC)
@@ -137,8 +173,9 @@ def test_temporary_database(
 def get_k8s_namespaces(
     kubeconfig: str | None = None,
     context: str | None = None,
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
+    _ensure_kubeconfig_access(kubeconfig, user)
     namespaces = list_namespaces(kubeconfig=kubeconfig, context=context)
     return {"namespaces": namespaces}
 
@@ -148,8 +185,9 @@ def get_k8s_pods(
     namespace: str = "default",
     kubeconfig: str | None = None,
     context: str | None = None,
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
+    _ensure_kubeconfig_access(kubeconfig, user)
     pods = list_pods(namespace=namespace, kubeconfig=kubeconfig, context=context)
     return {"pods": pods}
 
@@ -158,11 +196,12 @@ def get_k8s_pods(
 def get_database_endpoint(
     database_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
     item = db.get(DatabaseInstance, database_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(item, user, "Database instance not found")
     return item
 
 
@@ -177,7 +216,10 @@ def update_database_endpoint(
     item = db.get(DatabaseInstance, database_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
-    update_database(item, payload)
+    ensure_owner(item, user, "Database instance not found")
+    if payload.k8s_config:
+        _ensure_kubeconfig_access(payload.k8s_config.kubeconfig, user)
+    update_database(db, item, payload)
     db.commit()
     db.refresh(item)
     create_audit_log(
@@ -201,6 +243,15 @@ def delete_database_endpoint(
     item = db.get(DatabaseInstance, database_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(item, user, "Database instance not found")
+    has_enabled_job = (
+        db.query(Job)
+        .filter(Job.database_id == item.id, Job.enabled.is_(True), Job.deleted_at.is_(None))
+        .first()
+        is not None
+    )
+    if has_enabled_job:
+        raise AppError("VALIDATION_ERROR", "Database instance is used by an enabled job", status_code=400)
     item.deleted_at = datetime.now(UTC)
     db.commit()
     create_audit_log(
@@ -218,9 +269,10 @@ def delete_database_endpoint(
 def test_saved_database(
     database_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("database:read")),
+    user: User = Depends(require_permission("database:read")),
 ):
     item = db.get(DatabaseInstance, database_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "Database instance not found", status_code=404)
+    ensure_owner(item, user, "Database instance not found")
     return test_database_connection(item)

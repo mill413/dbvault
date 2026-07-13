@@ -2,9 +2,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.api.pagination import Pagination, pagination_params
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
 from app.core.errors import AppError
+from app.core.ownership import ensure_owner, owner_filter
 from app.models import RestoreTask, TaskEvent, User
 from app.schemas.audit import TaskEventRead
 from app.schemas.backups import TaskCreatedResponse
@@ -27,10 +29,26 @@ def _run_restore_task_with_new_session(task_id: int) -> None:
 @router.post("/restore/dry-run", response_model=RestoreDryRunResponse)
 def dry_run(
     payload: RestoreRunRequest,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
-    return dry_run_restore(db, payload.backup_id, payload.target_database_id)
+    result = dry_run_restore(db, payload.backup_id, payload.target_database_id, user, payload.restore_mode)
+    create_audit_log(
+        db,
+        user=user,
+        action="restore.dry_run",
+        resource_type="backup",
+        resource_id=payload.backup_id,
+        request=request,
+        result="success" if result["ok"] else "failed",
+        reason=result["message"],
+        metadata={
+            "target_database_id": payload.target_database_id,
+            "restore_mode": payload.restore_mode,
+        },
+    )
+    return result
 
 
 @router.post("/restore/run", response_model=TaskCreatedResponse)
@@ -59,17 +77,21 @@ def run_restore(
 
 @router.get("/restore-tasks", response_model=Page[RestoreTaskRead])
 def list_restore_tasks(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
+    status: str | None = None,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
-    query = db.query(RestoreTask).order_by(RestoreTask.created_at.desc())
+    query = db.query(RestoreTask)
+    query = owner_filter(query, RestoreTask, user)
+    if status:
+        query = query.filter(RestoreTask.status == status)
+    query = query.order_by(RestoreTask.created_at.desc())
     total = query.count()
     return {
-        "items": query.offset((page - 1) * page_size).limit(page_size).all(),
-        "page": page,
-        "page_size": page_size,
+        "items": query.offset((pagination.page - 1) * pagination.page_size).limit(pagination.page_size).all(),
+        "page": pagination.page,
+        "page_size": pagination.page_size,
         "total": total,
     }
 
@@ -78,11 +100,12 @@ def list_restore_tasks(
 def get_restore_task(
     task_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
     task = db.get(RestoreTask, task_id)
     if not task:
         raise AppError("RESOURCE_NOT_FOUND", "Restore task not found", status_code=404)
+    ensure_owner(task, user, "Restore task not found")
     return task
 
 
@@ -90,8 +113,12 @@ def get_restore_task(
 def get_restore_task_events(
     task_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("backup:read")),
+    user: User = Depends(require_permission("backup:read")),
 ):
+    task = db.get(RestoreTask, task_id)
+    if not task:
+        raise AppError("RESOURCE_NOT_FOUND", "Restore task not found", status_code=404)
+    ensure_owner(task, user, "Restore task not found")
     return (
         db.query(TaskEvent)
         .filter(TaskEvent.task_type == "restore", TaskEvent.task_id == task_id)

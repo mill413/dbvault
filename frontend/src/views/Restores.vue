@@ -5,7 +5,7 @@
         <div class="card-header">
           <span>{{ $t('restore.title') }}</span>
           <div class="header-filters">
-            <el-select v-model="filterStatus" :placeholder="$t('restore.statusFilter')" clearable style="width: 140px" @change="fetchData">
+            <el-select v-model="filterStatus" :placeholder="$t('restore.statusFilter')" clearable style="width: 140px" @change="applyFilters">
               <el-option label="完成" value="SUCCESS" />
               <el-option label="运行中" value="RUNNING" />
               <el-option label="失败" value="FAILED" />
@@ -46,6 +46,11 @@
             {{ row.duration_seconds ? row.duration_seconds.toFixed(1) : '-' }}
           </template>
         </el-table-column>
+        <el-table-column prop="created_by_username" :label="$t('common.createdBy')" width="120" sortable>
+          <template #default="{ row }">
+            {{ row.created_by_username || (row.created_by ? `#${row.created_by}` : '-') }}
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" :label="$t('common.createTime')" width="180" sortable>
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
@@ -73,7 +78,7 @@
     <el-dialog v-model="restoreDialogVisible" :title="$t('restore.restoreBackup')" width="600px">
       <el-form :model="restoreForm" :rules="restoreRules" ref="restoreFormRef" label-width="120px">
         <el-form-item :label="$t('restore.restoreBackup')" prop="backup_id">
-          <el-select v-model="restoreForm.backup_id" filterable :placeholder="$t('restore.selectBackup')" style="width: 100%">
+          <el-select v-model="restoreForm.backup_id" filterable :placeholder="$t('restore.selectBackup')" style="width: 100%" @change="onBackupChange">
             <el-option
               v-for="backup in backups"
               :key="backup.id"
@@ -198,8 +203,17 @@ const restoreForm = reactive({
   dry_run: false,
 })
 
+function validateTargetDatabase(_rule, value, callback) {
+  if (restoreForm.restore_mode === 'NEW_INSTANCE' && !value) {
+    callback(new Error(t('restore.selectTargetDb')))
+    return
+  }
+  callback()
+}
+
 const restoreRules = {
-  backup_id: [{ required: true, message: '请选择备份', trigger: 'change' }],
+  backup_id: [{ required: true, message: t('restore.backupRequired'), trigger: 'change' }],
+  target_database_id: [{ required: true, validator: validateTargetDatabase, trigger: 'change' }],
   restore_mode: [{ required: true, message: '请选择恢复模式', trigger: 'change' }],
 }
 
@@ -240,18 +254,23 @@ const availableTargetDatabases = computed(() => {
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await getRestoreTasks({ page: page.value, page_size: pageSize.value })
-    let items = response.data.items || []
+    const params = { page: page.value, page_size: pageSize.value }
     if (filterStatus.value) {
-      items = items.filter((item) => item.status === filterStatus.value)
+      params.status = filterStatus.value
     }
-    restoreTasks.value = items
+    const response = await getRestoreTasks(params)
+    restoreTasks.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error) {
     console.error('Failed to fetch restore tasks:', error)
   } finally {
     loading.value = false
   }
+}
+
+const applyFilters = () => {
+  page.value = 1
+  fetchData()
 }
 
 const fetchDependencies = async () => {
@@ -283,11 +302,27 @@ const onRestoreModeChange = () => {
   } else {
     restoreForm.target_database_id = null
   }
+  restoreFormRef.value?.clearValidate('target_database_id')
+}
+
+const onBackupChange = () => {
+  dryRunResult.value = null
+  if (restoreForm.restore_mode === 'ORIGINAL_INSTANCE') {
+    restoreForm.target_database_id = getSelectedBackup()?.database_id || null
+  } else {
+    restoreForm.target_database_id = null
+  }
+  restoreFormRef.value?.clearValidate(['backup_id', 'target_database_id'])
 }
 
 const validateRestoreMode = () => {
   const backup = getSelectedBackup()
-  if (!backup || !restoreForm.target_database_id) return true
+  if (!backup) return true
+  if (restoreForm.restore_mode === 'NEW_INSTANCE' && !restoreForm.target_database_id) {
+    ElMessage.warning(t('restore.selectTargetDb'))
+    return false
+  }
+  if (!restoreForm.target_database_id) return true
 
   const sourceDbId = backup.database_id
   const targetDbId = restoreForm.target_database_id
@@ -316,6 +351,7 @@ const handleDryRun = async () => {
     const response = await dryRunRestore({
       backup_id: restoreForm.backup_id,
       target_database_id: restoreForm.target_database_id,
+      restore_mode: restoreForm.restore_mode,
     })
     dryRunResult.value = response.data
     if (response.data.ok) {

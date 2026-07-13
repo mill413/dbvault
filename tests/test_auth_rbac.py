@@ -1,6 +1,3 @@
-from tests.conftest import create_database_instance, create_local_storage
-
-
 def test_initial_admin_can_login_and_read_me(client, admin_headers):
     response = client.get("/api/v1/auth/me", headers=admin_headers)
 
@@ -9,7 +6,7 @@ def test_initial_admin_can_login_and_read_me(client, admin_headers):
     assert response.json()["role"] == "Admin"
 
 
-def test_viewer_cannot_run_backup(client, admin_headers):
+def test_legacy_roles_are_rejected(client, admin_headers):
     response = client.post(
         "/api/v1/users",
         headers=admin_headers,
@@ -19,22 +16,21 @@ def test_viewer_cannot_run_backup(client, admin_headers):
             "role": "Viewer",
         },
     )
-    assert response.status_code == 200, response.text
+    assert response.status_code == 422
 
-    login = client.post(
-        "/api/v1/auth/login",
-        json={"username": "viewer", "password": "viewer123456789"},
+
+def test_page_size_is_bounded(client, admin_headers):
+    response = client.get("/api/v1/users?page_size=1000000", headers=admin_headers)
+
+    assert response.status_code == 422
+
+    response = client.post(
+        "/api/v1/users",
+        headers=admin_headers,
+        json={
+            "username": "operator",
+            "password": "operator123456",
+            "role": "Operator",
+        },
     )
-    viewer_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
-    database_id = create_database_instance(client, admin_headers)
-    storage_id = create_local_storage(client, admin_headers)
-
-    forbidden = client.post(
-        "/api/v1/backups/run",
-        headers=viewer_headers,
-        json={"database_id": database_id, "storage_id": storage_id},
-    )
-
-    assert forbidden.status_code == 403
-    assert forbidden.json()["error"]["code"] == "FORBIDDEN"
-
+    assert response.status_code == 422

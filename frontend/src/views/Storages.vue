@@ -5,11 +5,11 @@
         <div class="card-header">
           <span>{{ $t('storage.title') }}</span>
           <div class="header-filters">
-            <el-select v-model="filterType" :placeholder="$t('storage.typeFilter')" clearable style="width: 140px">
+            <el-select v-model="filterType" :placeholder="$t('storage.typeFilter')" clearable style="width: 140px" @change="applyFilters">
               <el-option label="Local" value="local" />
               <el-option label="S3" value="s3" />
             </el-select>
-            <el-select v-model="filterStatus" :placeholder="$t('storage.statusFilter')" clearable style="width: 120px">
+            <el-select v-model="filterStatus" :placeholder="$t('storage.statusFilter')" clearable style="width: 120px" @change="applyFilters">
               <el-option label="ACTIVE" value="ACTIVE" />
               <el-option label="INACTIVE" value="INACTIVE" />
             </el-select>
@@ -21,7 +21,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredStorages" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
+      <el-table :data="storages" v-loading="loading" border stripe style="width: 100%" size="default" empty-text="No data available">
         <el-table-column prop="id" label="ID" width="80" sortable />
         <el-table-column prop="name" :label="$t('storage.name')" sortable />
         <el-table-column prop="storage_type" :label="$t('storage.type')" width="120" sortable>
@@ -43,6 +43,11 @@
         <el-table-column prop="capacity_limit_bytes" :label="$t('storage.capacityLimit')" width="140" sortable>
           <template #default="{ row }">
             {{ row.capacity_limit_bytes ? formatSize(row.capacity_limit_bytes) : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_by_username" :label="$t('common.createdBy')" width="120" sortable>
+          <template #default="{ row }">
+            {{ row.created_by_username || (row.created_by ? `#${row.created_by}` : '-') }}
           </template>
         </el-table-column>
         <el-table-column :label="$t('common.actions')" width="220" fixed="right">
@@ -164,30 +169,48 @@ const form = reactive({
   capacity_unit: 'GB',
 })
 
-const rules = {
-  name: [{ required: true, message: t('storage.nameRequired'), trigger: 'blur' }],
-  storage_type: [{ required: true, message: t('storage.typeRequired'), trigger: 'change' }],
+const hasValue = (value) => value !== undefined && value !== null && value !== ''
+
+const hasConfigInput = () => Object.values(form.config || {}).some(hasValue)
+
+const requireConfigField = (storageType, message) => (_rule, value, callback) => {
+  const shouldValidateConfig = !isEdit.value || hasConfigInput()
+  if (form.storage_type === storageType && shouldValidateConfig && !hasValue(value)) {
+    callback(new Error(message))
+    return
+  }
+  callback()
 }
+
+const rules = computed(() => {
+  const configRequired = !isEdit.value || hasConfigInput()
+  const s3Required = form.storage_type === 's3' && configRequired
+  return {
+    name: [{ required: true, message: t('storage.nameRequired'), trigger: 'blur' }],
+    storage_type: [{ required: true, message: t('storage.typeRequired'), trigger: 'change' }],
+    'config.endpoint_url': [{ required: s3Required, validator: requireConfigField('s3', t('storage.endpoint')), trigger: 'blur' }],
+    'config.access_key': [{ required: s3Required, validator: requireConfigField('s3', t('storage.accessKey')), trigger: 'blur' }],
+    'config.secret_key': [{ required: s3Required, validator: requireConfigField('s3', t('storage.secretKey')), trigger: 'blur' }],
+    'config.bucket': [{ required: s3Required, validator: requireConfigField('s3', t('storage.bucket')), trigger: 'blur' }],
+  }
+})
 
 const onTypeChange = () => {
   form.config = {}
+  formRef.value?.clearValidate()
 }
-
-const filteredStorages = computed(() => {
-  let result = storages.value
-  if (filterType.value) {
-    result = result.filter(item => item.storage_type === filterType.value)
-  }
-  if (filterStatus.value) {
-    result = result.filter(item => item.status === filterStatus.value)
-  }
-  return result
-})
 
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await getStorages({ page: page.value, page_size: pageSize.value })
+    const params = { page: page.value, page_size: pageSize.value }
+    if (filterType.value) {
+      params.storage_type = filterType.value
+    }
+    if (filterStatus.value) {
+      params.status = filterStatus.value
+    }
+    const response = await getStorages(params)
     storages.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error) {
@@ -195,6 +218,11 @@ const fetchData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const applyFilters = () => {
+  page.value = 1
+  fetchData()
 }
 
 const showCreateDialog = () => {
@@ -242,7 +270,7 @@ const handleSubmit = async () => {
   if (!valid) return
 
   const config = form.storage_type === 'local'
-    ? { path: form.config.path }
+    ? (hasValue(form.config.path) ? { path: form.config.path } : {})
     : {
         endpoint_url: form.config.endpoint_url,
         access_key: form.config.access_key,
@@ -261,7 +289,10 @@ const handleSubmit = async () => {
     storage_type: form.storage_type,
     is_default: form.is_default,
     capacity_limit_bytes,
-    config,
+  }
+  const hasConfigValue = Object.values(config).some((value) => value !== undefined && value !== null && value !== '')
+  if (!isEdit.value || hasConfigValue) {
+    payload.config = config
   }
 
   submitting.value = true

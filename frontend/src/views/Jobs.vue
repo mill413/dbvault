@@ -52,8 +52,16 @@
             {{ row.next_run_at ? formatDate(row.next_run_at) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.actions')" width="150" fixed="right">
+        <el-table-column prop="created_by_username" :label="$t('common.createdBy')" width="120" sortable>
           <template #default="{ row }">
+            {{ row.created_by_username || (row.created_by ? `#${row.created_by}` : '-') }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('common.actions')" width="230" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" type="success" :loading="runningJobId === row.id" @click="handleRunNow(row)">
+              {{ $t('job.runNow') }}
+            </el-button>
             <el-button size="small" type="primary" @click="showEditDialog(row)">{{ $t('common.edit') }}</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">{{ $t('common.delete') }}</el-button>
           </template>
@@ -87,7 +95,7 @@
           <el-input v-model="form.cron_expr" placeholder="0 2 * * *" />
         </el-form-item>
         <el-form-item v-if="form.schedule_type === 'interval'" :label="$t('job.intervalSec')" prop="interval_seconds">
-          <el-input-number v-model="form.interval_seconds" :min="60" style="width: 100%" />
+          <el-input-number v-model="form.interval_seconds" :min="5" style="width: 100%" />
         </el-form-item>
         <el-form-item v-if="form.schedule_type === 'once'" :label="$t('job.runAt')" prop="run_at">
           <el-date-picker v-model="form.run_at" type="datetime" style="width: 100%" />
@@ -114,11 +122,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { getJobs, createJob, updateJob, deleteJob, enableJob, disableJob } from '../api/jobs'
+import { ElCheckbox, ElMessage, ElMessageBox } from 'element-plus'
+import { getJobs, createJob, updateJob, deleteJob, enableJob, disableJob, runJobNow } from '../api/jobs'
 import { getDatabases } from '../api/databases'
 import { getStorages } from '../api/storages'
 
@@ -127,6 +135,7 @@ const databases = ref([])
 const storages = ref([])
 const loading = ref(false)
 const submitting = ref(false)
+const runningJobId = ref(null)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
@@ -153,6 +162,9 @@ const rules = {
   database_id: [{ required: true, message: '请选择数据库', trigger: 'change' }],
   storage_id: [{ required: true, message: '请选择存储', trigger: 'change' }],
   schedule_type: [{ required: true, message: '请选择调度类型', trigger: 'change' }],
+  cron_expr: [{ required: true, message: '请输入 Cron 表达式', trigger: 'blur' }],
+  interval_seconds: [{ required: true, message: '请输入间隔秒数', trigger: 'change' }],
+  run_at: [{ required: true, message: '请选择执行时间', trigger: 'change' }],
 }
 
 const getScheduleLabel = (type) => {
@@ -303,10 +315,43 @@ const handleToggle = async (row) => {
   }
 }
 
+const handleRunNow = async (row) => {
+  runningJobId.value = row.id
+  try {
+    const response = await runJobNow(row.id)
+    ElMessage.success(t('job.runStarted', { id: response.data.task_id }))
+    await fetchData()
+  } catch (error) {
+    console.error('Failed to run job:', error)
+  } finally {
+    runningJobId.value = null
+  }
+}
+
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(t('job.deleteConfirm', { name: row.name }), t('common.confirm'), { type: 'warning' })
-    await deleteJob(row.id)
+    let deleteAssociatedBackups = false
+    await ElMessageBox({
+      title: t('common.confirm'),
+      message: h('div', { class: 'delete-job-message' }, [
+        h('p', null, t('job.deleteConfirm', { name: row.name })),
+        h(
+          ElCheckbox,
+          {
+            modelValue: deleteAssociatedBackups,
+            'onUpdate:modelValue': (value) => {
+              deleteAssociatedBackups = value
+            },
+          },
+          () => t('job.deleteAssociatedBackups')
+        ),
+      ]),
+      showCancelButton: true,
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning',
+    })
+    await deleteJob(row.id, { delete_backups: deleteAssociatedBackups })
     ElMessage.success('删除成功')
     fetchData()
   } catch (error) {
@@ -334,5 +379,9 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+:global(.delete-job-message p) {
+  margin: 0 0 12px;
 }
 </style>

@@ -5,6 +5,7 @@ from time import monotonic
 from app.drivers.database.base import BackupDriver, BackupResult, elapsed_since
 from app.drivers.database.command import run_command
 from app.drivers.database.k8s import K8sConfig, run_kubectl_command
+from app.utils.paths import safe_filename
 
 
 class MySQLDriver(BackupDriver):
@@ -38,6 +39,11 @@ class MySQLDriver(BackupDriver):
         env["MYSQL_PWD"] = self.password
         return env
 
+    def _dump_database_args(self) -> list[str]:
+        if self.instance.database_name:
+            return [self.instance.database_name]
+        return ["--all-databases"]
+
     def test_connection(self) -> dict:
         if self._k8s_mode:
             k8s = self._k8s_config
@@ -66,19 +72,16 @@ class MySQLDriver(BackupDriver):
 
     def backup(self, output_dir: Path, timeout_seconds: int = 21600) -> BackupResult:
         output_dir.mkdir(parents=True, exist_ok=True)
-        name = self.instance.database_name or "all-databases"
+        name = safe_filename(self.instance.database_name, "all-databases")
         target = output_dir / f"{name}.sql"
         if self._k8s_mode:
             k8s = self._k8s_config
             cmd = [
                 "mysqldump", "-u", self.instance.username,
                 "--single-transaction", "--routines", "--triggers",
-                "--events", "--hex-blob",
+                "--events", "--hex-blob", "--no-tablespaces",
             ]
-            if self.instance.database_name:
-                cmd += ["--databases", self.instance.database_name]
-            else:
-                cmd.append("--all-databases")
+            cmd += self._dump_database_args()
             start = monotonic()
             with target.open("wb") as output:
                 result = run_kubectl_command(
@@ -100,11 +103,9 @@ class MySQLDriver(BackupDriver):
             "--triggers",
             "--events",
             "--hex-blob",
+            "--no-tablespaces",
         ]
-        if self.instance.database_name:
-            args += ["--databases", self.instance.database_name]
-        else:
-            args.append("--all-databases")
+        args += self._dump_database_args()
         start = monotonic()
         with target.open("wb") as output:
             result = run_command(args, env=self._env(), output_file=output, timeout_seconds=timeout_seconds)

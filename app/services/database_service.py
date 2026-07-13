@@ -6,7 +6,16 @@ from app.drivers.registry import registry
 from app.models import DatabaseInstance, User
 
 
+def ensure_database_name_available(db: Session, name: str, *, exclude_id: int | None = None) -> None:
+    query = db.query(DatabaseInstance).filter(DatabaseInstance.name == name, DatabaseInstance.deleted_at.is_(None))
+    if exclude_id is not None:
+        query = query.filter(DatabaseInstance.id != exclude_id)
+    if query.first():
+        raise AppError("ALREADY_EXISTS", f"Database instance '{name}' already exists", status_code=409)
+
+
 def create_database(db: Session, payload, user: User) -> DatabaseInstance:
+    ensure_database_name_available(db, payload.name)
     k8s_data = None
     if hasattr(payload, "k8s_config") and payload.k8s_config is not None:
         k8s_data = payload.k8s_config.model_dump() if hasattr(payload.k8s_config, "model_dump") else payload.k8s_config
@@ -35,9 +44,11 @@ def create_database(db: Session, payload, user: User) -> DatabaseInstance:
     return instance
 
 
-def update_database(instance: DatabaseInstance, payload) -> DatabaseInstance:
+def update_database(db: Session, instance: DatabaseInstance, payload) -> DatabaseInstance:
     data = payload.model_dump(exclude_unset=True)
     password = data.pop("password", None)
+    if "name" in data:
+        ensure_database_name_available(db, data["name"], exclude_id=instance.id)
     conn_type = data.get("connection_type", instance.connection_type)
     if conn_type == "kubernetes":
         if "host" in data and data["host"] is None:
@@ -60,4 +71,3 @@ def build_database_driver(instance: DatabaseInstance):
 
 def test_database_connection(instance: DatabaseInstance) -> dict:
     return build_database_driver(instance).test_connection()
-

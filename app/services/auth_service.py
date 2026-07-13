@@ -38,7 +38,7 @@ def authenticate_user(db: Session, username: str, password: str) -> User:
 
 def build_token_response(user: User) -> dict:
     settings = get_settings()
-    claims = {"username": user.username, "role": user.role}
+    claims = {"username": user.username, "role": user.role, "ver": user.token_version}
     return {
         "access_token": create_token(str(user.id), claims, "access"),
         "refresh_token": create_token(str(user.id), claims, "refresh"),
@@ -53,6 +53,8 @@ def refresh_tokens(db: Session, refresh_token: str) -> dict:
     user = db.get(User, int(payload["sub"]))
     if not user or user.deleted_at is not None or user.status != "ACTIVE":
         raise AppError("UNAUTHORIZED", "Invalid refresh token", status_code=401)
+    if payload.get("ver") != user.token_version:
+        raise AppError("UNAUTHORIZED", "Invalid refresh token", status_code=401)
     return build_token_response(user)
 
 
@@ -61,5 +63,5 @@ def change_password(db: Session, user: User, old_password: str, new_password: st
         raise AppError("VALIDATION_ERROR", "Old password is incorrect", status_code=400)
     user.password_hash = hash_password(new_password)
     user.password_changed_at = datetime.now(UTC)
+    user.token_version += 1
     db.commit()
-

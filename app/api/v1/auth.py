@@ -59,7 +59,7 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
         password_hash=hash_password(payload.password),
         display_name=payload.display_name,
         email=payload.email,
-        role="Viewer",
+        role="User",
         status="ACTIVE",
         password_changed_at=datetime.now(UTC),
     )

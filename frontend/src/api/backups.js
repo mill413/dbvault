@@ -25,7 +25,7 @@ export function deleteBackup(id) {
 }
 
 export function downloadBackup(id) {
-  return api.get(`/backups/${id}/download`)
+  return api.get(`/backups/${id}/download`, { responseType: 'blob' })
 }
 
 export function verifyBackup(id) {

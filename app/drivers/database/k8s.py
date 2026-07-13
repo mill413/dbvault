@@ -3,6 +3,7 @@ import subprocess
 from dataclasses import dataclass
 from time import monotonic
 
+from app.core.logging import mask_secret
 from app.drivers.database.base import CommandResult, elapsed_since, tail_text
 
 
@@ -96,8 +97,24 @@ def run_kubectl_command(
         for key in ["MYSQL_PWD", "PGPASSWORD"]:
             if key in env:
                 k8s_env_vars[key] = env[key]
-    args = build_kubectl_exec_args(config, command, env_vars=k8s_env_vars if k8s_env_vars else None)
     start = monotonic()
+    pod_name = resolve_pod_name(config)
+    if not pod_name:
+        return CommandResult(
+            ok=False,
+            returncode=1,
+            stdout_tail="",
+            stderr_tail="Kubernetes pod not found. Provide pod_name or a label_selector that matches a pod.",
+            duration_seconds=elapsed_since(start),
+        )
+    exec_config = K8sConfig(
+        namespace=config.namespace,
+        pod_name=pod_name,
+        container=config.container,
+        kubeconfig=config.kubeconfig,
+        context=config.context,
+    )
+    args = build_kubectl_exec_args(exec_config, command, env_vars=k8s_env_vars or None)
     try:
         completed = subprocess.run(
             args,
@@ -120,17 +137,16 @@ def run_kubectl_command(
         return CommandResult(
             ok=False,
             returncode=124,
-            stdout_tail=tail_text(exc.stdout or b"", output_limit),
-            stderr_tail=tail_text(exc.stderr or b"Timeout", output_limit),
+            stdout_tail=mask_secret(tail_text(exc.stdout or b"", output_limit)) or "",
+            stderr_tail=mask_secret(tail_text(exc.stderr or b"Timeout", output_limit)) or "",
             duration_seconds=elapsed_since(start),
         )
-
     stdout_tail = "" if output_file is not None else tail_text(completed.stdout or b"", output_limit)
     return CommandResult(
         ok=completed.returncode == 0,
         returncode=completed.returncode,
-        stdout_tail=stdout_tail,
-        stderr_tail=tail_text(completed.stderr or b"", output_limit),
+        stdout_tail=mask_secret(stdout_tail) or "",
+        stderr_tail=mask_secret(tail_text(completed.stderr or b"", output_limit)) or "",
         duration_seconds=elapsed_since(start),
     )
 

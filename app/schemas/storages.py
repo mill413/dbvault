@@ -29,6 +29,8 @@ class StorageRead(ORMModel):
     is_default: bool
     status: str
     capacity_limit_bytes: int | None = None
+    created_by: int | None = None
+    created_by_username: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -44,4 +46,3 @@ class StorageCapacityResponse(BaseModel):
     capacity_limit_bytes: int | None
     used_bytes: int
     usage_percent: float | None
-

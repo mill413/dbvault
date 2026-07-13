@@ -6,6 +6,7 @@ from app.core.config import get_settings
 SECRET_PATTERNS = [
     re.compile(r"(--password=)[^\s]+", re.IGNORECASE),
     re.compile(r"(PGPASSWORD=)[^\s]+", re.IGNORECASE),
+    re.compile(r"(MYSQL_PWD=)[^\s]+", re.IGNORECASE),
     re.compile(r"(password['\"]?\s*[:=]\s*['\"]?)[^'\"\s,}]+", re.IGNORECASE),
     re.compile(r"(secret_key['\"]?\s*[:=]\s*['\"]?)[^'\"\s,}]+", re.IGNORECASE),
     re.compile(r"(access_token['\"]?\s*[:=]\s*['\"]?)[^'\"\s,}]+", re.IGNORECASE),
@@ -26,4 +27,3 @@ def mask_secret(value: str | None) -> str | None:
     for pattern in SECRET_PATTERNS:
         masked = pattern.sub(r"\1***", masked)
     return masked
-

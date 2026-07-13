@@ -8,18 +8,12 @@ const ROLE_PERMISSIONS = {
     'storage:read', 'storage:write',
     'audit:read',
   ]),
-  Operator: new Set([
+  User: new Set([
     'database:read', 'database:write',
     'backup:read', 'backup:run', 'backup:delete',
     'restore:run',
     'job:read', 'job:write',
-    'storage:read',
-  ]),
-  Viewer: new Set([
-    'database:read',
-    'backup:read',
-    'job:read',
-    'storage:read',
+    'storage:read', 'storage:write',
   ]),
 }
 

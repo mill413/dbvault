@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.api.pagination import Pagination, pagination_params
 from app.core.database import get_db
 from app.core.errors import AppError
 from app.core.security import hash_password
@@ -15,17 +16,34 @@ from app.services.audit_service import create_audit_log
 router = APIRouter()
 
 
+def _ensure_username_available(db: Session, username: str, *, exclude_id: int | None = None) -> None:
+    query = db.query(User).filter(User.username == username, User.deleted_at.is_(None))
+    if exclude_id is not None:
+        query = query.filter(User.id != exclude_id)
+    if query.first():
+        raise AppError("ALREADY_EXISTS", f"User '{username}' already exists", status_code=409)
+
+
 @router.get("", response_model=Page[UserRead])
 def list_users(
-    page: int = 1,
-    page_size: int = 20,
+    pagination: Pagination = Depends(pagination_params),
+    username: str | None = None,
+    role: str | None = None,
+    status: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("user:read")),
 ):
-    query = db.query(User).filter(User.deleted_at.is_(None)).order_by(User.id.asc())
+    query = db.query(User).filter(User.deleted_at.is_(None))
+    if username:
+        query = query.filter(User.username.ilike(f"%{username}%"))
+    if role:
+        query = query.filter(User.role == role)
+    if status:
+        query = query.filter(User.status == status)
+    query = query.order_by(User.id.asc())
     total = query.count()
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": items, "page": page, "page_size": page_size, "total": total}
+    items = query.offset((pagination.page - 1) * pagination.page_size).limit(pagination.page_size).all()
+    return {"items": items, "page": pagination.page, "page_size": pagination.page_size, "total": total}
 
 
 @router.post("", response_model=UserRead)
@@ -35,6 +53,7 @@ def create_user(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("user:write")),
 ):
+    _ensure_username_available(db, payload.username)
     created = User(
         username=payload.username,
         password_hash=hash_password(payload.password),
@@ -70,7 +89,10 @@ def update_user(
     item = db.get(User, user_id)
     if not item or item.deleted_at is not None:
         raise AppError("RESOURCE_NOT_FOUND", "User not found", status_code=404)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "username" in data:
+        _ensure_username_available(db, data["username"], exclude_id=item.id)
+    for key, value in data.items():
         setattr(item, key, value)
     db.commit()
     db.refresh(item)
@@ -107,6 +129,7 @@ def reset_password(
         raise AppError("RESOURCE_NOT_FOUND", "User not found", status_code=404)
     item.password_hash = hash_password(payload.password)
     item.password_changed_at = datetime.now(UTC)
+    item.token_version += 1
     db.commit()
     create_audit_log(
         db,
@@ -117,4 +140,3 @@ def reset_password(
         request=request,
     )
     return {"message": "password reset"}
-
