@@ -52,8 +52,16 @@
             {{ row.next_run_at ? formatDate(row.next_run_at) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.actions')" width="150" fixed="right">
+        <el-table-column prop="created_by_username" :label="$t('common.createdBy')" width="120" sortable>
           <template #default="{ row }">
+            {{ row.created_by_username || (row.created_by ? `#${row.created_by}` : '-') }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('common.actions')" width="230" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" type="success" :loading="runningJobId === row.id" @click="handleRunNow(row)">
+              {{ $t('job.runNow') }}
+            </el-button>
             <el-button size="small" type="primary" @click="showEditDialog(row)">{{ $t('common.edit') }}</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">{{ $t('common.delete') }}</el-button>
           </template>
@@ -87,7 +95,7 @@
           <el-input v-model="form.cron_expr" placeholder="0 2 * * *" />
         </el-form-item>
         <el-form-item v-if="form.schedule_type === 'interval'" :label="$t('job.intervalSec')" prop="interval_seconds">
-          <el-input-number v-model="form.interval_seconds" :min="60" style="width: 100%" />
+          <el-input-number v-model="form.interval_seconds" :min="5" style="width: 100%" />
         </el-form-item>
         <el-form-item v-if="form.schedule_type === 'once'" :label="$t('job.runAt')" prop="run_at">
           <el-date-picker v-model="form.run_at" type="datetime" style="width: 100%" />
@@ -118,7 +126,7 @@ import { ref, reactive, onMounted, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
 import { ElCheckbox, ElMessage, ElMessageBox } from 'element-plus'
-import { getJobs, createJob, updateJob, deleteJob, enableJob, disableJob } from '../api/jobs'
+import { getJobs, createJob, updateJob, deleteJob, enableJob, disableJob, runJobNow } from '../api/jobs'
 import { getDatabases } from '../api/databases'
 import { getStorages } from '../api/storages'
 
@@ -127,6 +135,7 @@ const databases = ref([])
 const storages = ref([])
 const loading = ref(false)
 const submitting = ref(false)
+const runningJobId = ref(null)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
@@ -303,6 +312,19 @@ const handleToggle = async (row) => {
   } catch (error) {
     row.enabled = !row.enabled
     console.error('Failed to toggle:', error)
+  }
+}
+
+const handleRunNow = async (row) => {
+  runningJobId.value = row.id
+  try {
+    const response = await runJobNow(row.id)
+    ElMessage.success(t('job.runStarted', { id: response.data.task_id }))
+    await fetchData()
+  } catch (error) {
+    console.error('Failed to run job:', error)
+  } finally {
+    runningJobId.value = null
   }
 }
 

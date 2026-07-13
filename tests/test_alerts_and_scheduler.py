@@ -98,8 +98,10 @@ def test_job_crud_and_trigger_building(client, admin_headers, tmp_path):
     disabled = client.post(f"/api/v1/jobs/{job['id']}/disable", headers=admin_headers)
 
     assert trigger is not None
+    assert job["next_run_at"] is not None
     assert disabled.status_code == 200
     assert disabled.json()["enabled"] is False
+    assert disabled.json()["next_run_at"] is None
 
 
 def test_all_job_schedule_types_create_valid_triggers(client, admin_headers, tmp_path):
@@ -108,7 +110,7 @@ def test_all_job_schedule_types_create_valid_triggers(client, admin_headers, tmp
 
     cases = [
         ("cron-job", {"schedule_type": "cron", "cron_expr": "*/5 * * * *"}),
-        ("interval-job", {"schedule_type": "interval", "interval_seconds": 3600}),
+        ("interval-job", {"schedule_type": "interval", "interval_seconds": 5}),
         ("once-job", {"schedule_type": "once", "run_at": "2099-01-01T00:00:00+08:00"}),
     ]
     for name, schedule in cases:
@@ -125,6 +127,20 @@ def test_all_job_schedule_types_create_valid_triggers(client, admin_headers, tmp
         )
         assert response.status_code == 200, response.text
         assert build_trigger(SimpleNamespace(**response.json())) is not None
+        assert response.json()["next_run_at"] is not None
+
+    too_short = client.post(
+        "/api/v1/jobs",
+        headers=admin_headers,
+        json={
+            "name": "too-short",
+            "database_id": database_id,
+            "storage_id": storage_id,
+            "schedule_type": "interval",
+            "interval_seconds": 4,
+        },
+    )
+    assert too_short.status_code == 422
 
 
 def test_scheduled_job_execution_creates_job_backup_and_updates_status(client, admin_headers, tmp_path):

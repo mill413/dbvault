@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
@@ -56,6 +58,7 @@ def execute_job(job_id: int) -> None:
         if not job.allow_concurrent:
             if job_has_active_task(db, job):
                 job.skipped_count += 1
+                job.next_run_at = registered_next_run_at(job.id)
                 db.commit()
                 return
         payload = BackupRunRequest(
@@ -68,16 +71,19 @@ def execute_job(job_id: int) -> None:
         user = db.get(User, job.created_by) if job.created_by else None
         if not user:
             job.skipped_count += 1
+            job.next_run_at = registered_next_run_at(job.id)
             db.commit()
             return
         task = create_backup_task(db, payload, user, trigger_type="JOB", job_id=job.id)
         if not try_acquire_job_slot(db, job, task):
             job.skipped_count += 1
+            job.next_run_at = registered_next_run_at(job.id)
             db.commit()
             return
         result = run_backup_task(db, task.id)
         job.last_run_at = result.started_at
         job.last_status = result.status
+        job.next_run_at = registered_next_run_at(job.id)
         db.commit()
     finally:
         db.close()
@@ -90,16 +96,27 @@ def get_scheduler() -> BackgroundScheduler:
     return _scheduler
 
 
-def register_job(job: Job) -> None:
+def registered_next_run_at(job_id: int):
+    scheduled_job = get_scheduler().get_job(f"job-{job_id}")
+    if scheduled_job is None:
+        return None
+    return getattr(scheduled_job, "next_run_time", None) or scheduled_job.trigger.get_next_fire_time(
+        None, datetime.now(UTC)
+    )
+
+
+def register_job(job: Job):
     scheduler = get_scheduler()
-    scheduler.add_job(
+    trigger = build_trigger(job)
+    scheduled_job = scheduler.add_job(
         execute_job,
-        trigger=build_trigger(job),
+        trigger=trigger,
         args=[job.id],
         id=f"job-{job.id}",
         replace_existing=True,
         max_instances=1,
     )
+    return getattr(scheduled_job, "next_run_time", None) or trigger.get_next_fire_time(None, datetime.now(UTC))
 
 
 def remove_job(job_id: int) -> None:
@@ -108,10 +125,11 @@ def remove_job(job_id: int) -> None:
         scheduler.remove_job(f"job-{job_id}")
 
 
-def reload_job(job: Job) -> None:
+def reload_job(job: Job):
     remove_job(job.id)
     if job.enabled and job.deleted_at is None:
-        register_job(job)
+        return register_job(job)
+    return None
 
 
 def start_scheduler() -> None:
@@ -119,7 +137,8 @@ def start_scheduler() -> None:
     db = SessionLocal()
     try:
         for job in db.query(Job).filter(Job.enabled.is_(True), Job.deleted_at.is_(None)).all():
-            register_job(job)
+            job.next_run_at = register_job(job)
+        db.commit()
     finally:
         db.close()
     if not scheduler.running:

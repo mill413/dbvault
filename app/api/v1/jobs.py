@@ -74,7 +74,9 @@ def create_job(
     db.add(job)
     db.commit()
     db.refresh(job)
-    reload_job(job)
+    job.next_run_at = reload_job(job)
+    db.commit()
+    db.refresh(job)
     create_audit_log(db, user=user, action="job.create", resource_type="job", resource_id=job.id, request=request)
     return job
 
@@ -116,7 +118,9 @@ def update_job(
         setattr(job, key, value)
     db.commit()
     db.refresh(job)
-    reload_job(job)
+    job.next_run_at = reload_job(job)
+    db.commit()
+    db.refresh(job)
     create_audit_log(db, user=user, action="job.update", resource_type="job", resource_id=job.id, request=request)
     return job
 
@@ -169,7 +173,9 @@ def enable_job(job_id: int, db: Session = Depends(get_db), user: User = Depends(
     job.enabled = True
     db.commit()
     db.refresh(job)
-    reload_job(job)
+    job.next_run_at = reload_job(job)
+    db.commit()
+    db.refresh(job)
     return job
 
 
@@ -180,6 +186,7 @@ def disable_job(job_id: int, db: Session = Depends(get_db), user: User = Depends
         raise AppError("RESOURCE_NOT_FOUND", "Job not found", status_code=404)
     ensure_owner(job, user, "Job not found")
     job.enabled = False
+    job.next_run_at = None
     db.commit()
     db.refresh(job)
     remove_job(job.id)
