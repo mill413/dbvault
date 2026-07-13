@@ -393,7 +393,7 @@ dbvault/
 ├── docker/                     # 容器配置
 │   ├── Dockerfile              #   API 服务镜像（多阶段构建，含 kubectl）
 │   ├── Dockerfile.frontend     #   前端服务镜像
-│   ├── docker-compose.yml      #   开发环境编排
+│   ├── docker-compose.yml      #   生产环境 Compose 编排
 │   └── deploy.sh               #   部署自动化脚本
 ├── tests/                      # 后端测试套件
 ├── .github/workflows/          # GitHub Actions CI/CD

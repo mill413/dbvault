@@ -393,7 +393,7 @@ dbvault/
 ├── docker/                     # Container configuration
 │   ├── Dockerfile              #   API service (multi-stage, kubectl)
 │   ├── Dockerfile.frontend     #   Frontend service
-│   ├── docker-compose.yml      #   Development stack
+│   ├── docker-compose.yml      #   Production Compose stack
 │   └── deploy.sh               #   Deployment automation
 ├── tests/                      # Backend test suite
 ├── .github/workflows/          # GitHub Actions CI/CD

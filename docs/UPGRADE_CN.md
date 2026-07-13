@@ -2,7 +2,7 @@
 
 本文适用于通过 `docker/deploy.sh` 或 `docker/docker-compose.yml` 启动的 Docker Compose 部署。
 
-> 默认 Compose 文件偏本地开发：API 和前端容器会挂载仓库源码目录，API 还启用了 `--reload`。升级时必须让本地代码、Docker 镜像和 Alembic 迁移保持同一版本。
+> 默认 Compose 文件使用生产镜像运行，不会挂载仓库源码，也不会启用 API 热重载。升级时应让 Compose/部署脚本、Docker 镜像和 Alembic 迁移保持同一发布版本。
 
 ## 升级前检查
 
@@ -67,7 +67,7 @@ docker compose up -d api frontend
 
 ## 从发布镜像升级
 
-使用 GitHub Releases 中的镜像归档时走此流程。由于默认 Compose 文件会把本地源码挂载进容器，仓库代码也要切到匹配的发布版本。
+使用 GitHub Releases 中的镜像归档时走此流程。请使用对应发布版本中的 `docker/docker-compose.yml` 和 `docker/deploy.sh`，因为不同版本的部署配置可能变化；应用源码不会挂载进容器。
 
 ```bash
 git fetch --all --tags

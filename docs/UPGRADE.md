@@ -2,7 +2,7 @@
 
 This guide covers Docker Compose deployments created by `docker/deploy.sh` or `docker/docker-compose.yml`.
 
-> The default Compose file is development-oriented: API and frontend containers mount the repository source tree, and the API runs with `--reload`. Keep the checked-out code, Docker images, and Alembic migrations on the same version during upgrades.
+> The default Compose file runs production images without mounting repository source or enabling API hot reload. Keep the Compose/deploy files, Docker images, and Alembic migrations on the same release during upgrades.
 
 ## Before You Upgrade
 
@@ -67,7 +67,7 @@ If there are no backend or migration changes, `./deploy.sh -b -f` is enough for 
 
 ## Upgrade From Release Images
 
-Use this path when deploying images from GitHub Releases. Keep the repository checkout at the matching release version because the default Compose file mounts local source into the containers.
+Use this path when deploying images from GitHub Releases. Use the `docker/docker-compose.yml` and `docker/deploy.sh` files from the matching release because deployment settings may change between versions; application source is not mounted into the containers.
 
 ```bash
 git fetch --all --tags
