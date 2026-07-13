@@ -46,6 +46,11 @@
             {{ row.duration_seconds ? row.duration_seconds.toFixed(1) : '-' }}
           </template>
         </el-table-column>
+        <el-table-column prop="created_by_username" :label="$t('common.createdBy')" width="120" sortable>
+          <template #default="{ row }">
+            {{ row.created_by_username || (row.created_by ? `#${row.created_by}` : '-') }}
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" :label="$t('common.createTime')" width="180" sortable>
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
@@ -73,7 +78,7 @@
     <el-dialog v-model="restoreDialogVisible" :title="$t('restore.restoreBackup')" width="600px">
       <el-form :model="restoreForm" :rules="restoreRules" ref="restoreFormRef" label-width="120px">
         <el-form-item :label="$t('restore.restoreBackup')" prop="backup_id">
-          <el-select v-model="restoreForm.backup_id" filterable :placeholder="$t('restore.selectBackup')" style="width: 100%">
+          <el-select v-model="restoreForm.backup_id" filterable :placeholder="$t('restore.selectBackup')" style="width: 100%" @change="onBackupChange">
             <el-option
               v-for="backup in backups"
               :key="backup.id"
@@ -207,7 +212,7 @@ function validateTargetDatabase(_rule, value, callback) {
 }
 
 const restoreRules = {
-  backup_id: [{ required: true, message: '请选择备份', trigger: 'change' }],
+  backup_id: [{ required: true, message: t('restore.backupRequired'), trigger: 'change' }],
   target_database_id: [{ required: true, validator: validateTargetDatabase, trigger: 'change' }],
   restore_mode: [{ required: true, message: '请选择恢复模式', trigger: 'change' }],
 }
@@ -298,6 +303,16 @@ const onRestoreModeChange = () => {
     restoreForm.target_database_id = null
   }
   restoreFormRef.value?.clearValidate('target_database_id')
+}
+
+const onBackupChange = () => {
+  dryRunResult.value = null
+  if (restoreForm.restore_mode === 'ORIGINAL_INSTANCE') {
+    restoreForm.target_database_id = getSelectedBackup()?.database_id || null
+  } else {
+    restoreForm.target_database_id = null
+  }
+  restoreFormRef.value?.clearValidate(['backup_id', 'target_database_id'])
 }
 
 const validateRestoreMode = () => {

@@ -45,6 +45,11 @@
             {{ row.capacity_limit_bytes ? formatSize(row.capacity_limit_bytes) : '-' }}
           </template>
         </el-table-column>
+        <el-table-column prop="created_by_username" :label="$t('common.createdBy')" width="120" sortable>
+          <template #default="{ row }">
+            {{ row.created_by_username || (row.created_by ? `#${row.created_by}` : '-') }}
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('common.actions')" width="220" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="testStorage(row)">{{ $t('storage.test') }}</el-button>
@@ -179,12 +184,10 @@ const requireConfigField = (storageType, message) => (_rule, value, callback) =>
 
 const rules = computed(() => {
   const configRequired = !isEdit.value || hasConfigInput()
-  const localRequired = form.storage_type === 'local' && configRequired
   const s3Required = form.storage_type === 's3' && configRequired
   return {
     name: [{ required: true, message: t('storage.nameRequired'), trigger: 'blur' }],
     storage_type: [{ required: true, message: t('storage.typeRequired'), trigger: 'change' }],
-    'config.path': [{ required: localRequired, validator: requireConfigField('local', t('storage.path')), trigger: 'blur' }],
     'config.endpoint_url': [{ required: s3Required, validator: requireConfigField('s3', t('storage.endpoint')), trigger: 'blur' }],
     'config.access_key': [{ required: s3Required, validator: requireConfigField('s3', t('storage.accessKey')), trigger: 'blur' }],
     'config.secret_key': [{ required: s3Required, validator: requireConfigField('s3', t('storage.secretKey')), trigger: 'blur' }],
@@ -267,7 +270,7 @@ const handleSubmit = async () => {
   if (!valid) return
 
   const config = form.storage_type === 'local'
-    ? { path: form.config.path }
+    ? (hasValue(form.config.path) ? { path: form.config.path } : {})
     : {
         endpoint_url: form.config.endpoint_url,
         access_key: form.config.access_key,

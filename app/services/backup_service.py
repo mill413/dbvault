@@ -407,10 +407,17 @@ def verify_backup(db: Session, backup: Backup) -> dict:
         build_storage_driver(storage).download(backup.object_key, local_path)
         actual = file_checksum(local_path, "sha256")
         ok = actual == backup.sha256
+        result = {
+            "ok": ok,
+            "expected_sha256": backup.sha256,
+            "actual_sha256": actual,
+            "verified_at": datetime.now(UTC).isoformat(),
+        }
+        backup.extra_metadata = {**(backup.extra_metadata or {}), "verification": result}
         if not ok:
             backup.status = "VERIFY_FAILED"
-            db.commit()
-        return {"ok": ok, "expected_sha256": backup.sha256, "actual_sha256": actual}
+        db.commit()
+        return result
     finally:
         local_path.unlink(missing_ok=True)
 

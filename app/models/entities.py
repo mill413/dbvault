@@ -63,7 +63,11 @@ class DatabaseInstance(Base, TimestampMixin, SoftDeleteMixin):
     connection_type: Mapped[str] = mapped_column(String(32), default="direct", nullable=False)
     k8s_config: Mapped[dict | None] = mapped_column(JSON)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
 
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
 
 class Storage(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "storages"
@@ -76,7 +80,11 @@ class Storage(Base, TimestampMixin, SoftDeleteMixin):
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE", nullable=False)
     capacity_limit_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
 
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
 
 class Backup(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "backups"
@@ -105,12 +113,21 @@ class Backup(Base, TimestampMixin, SoftDeleteMixin):
     database: Mapped[DatabaseInstance] = relationship()
     storage: Mapped[Storage] = relationship()
     backup_task: Mapped["BackupTask | None"] = relationship()
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
 
     @property
     def source_type(self) -> str:
         if self.backup_task and self.backup_task.trigger_type == "JOB":
             return "SCHEDULED"
         return "MANUAL"
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
+
+    @property
+    def verification(self) -> dict | None:
+        return (self.extra_metadata or {}).get("verification")
 
 
 class BackupTask(Base, TimestampMixin):
@@ -137,6 +154,11 @@ class BackupTask(Base, TimestampMixin):
 
     database: Mapped[DatabaseInstance] = relationship()
     storage: Mapped[Storage] = relationship()
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
 
 
 class RestoreTask(Base, TimestampMixin):
@@ -166,6 +188,11 @@ class RestoreTask(Base, TimestampMixin):
     target_database: Mapped[DatabaseInstance | None] = relationship(
         foreign_keys=[target_database_id]
     )
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
 
 
 class Job(Base, TimestampMixin, SoftDeleteMixin):
@@ -195,6 +222,11 @@ class Job(Base, TimestampMixin, SoftDeleteMixin):
 
     database: Mapped[DatabaseInstance] = relationship()
     storage: Mapped[Storage] = relationship()
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by], lazy="selectin")
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None
 
 
 class AuditLog(Base):

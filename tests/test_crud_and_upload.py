@@ -44,6 +44,20 @@ def test_storage_update_without_config_preserves_existing_config(client, admin_h
         db.close()
 
 
+def test_local_storage_without_path_uses_configured_default(client, admin_headers):
+    response = client.post(
+        "/api/v1/storages",
+        headers=admin_headers,
+        json={"name": "default-path", "storage_type": "local", "config": {}},
+    )
+
+    assert response.status_code == 200, response.text
+    storage_id = response.json()["id"]
+    tested = client.post(f"/api/v1/storages/{storage_id}/test", headers=admin_headers)
+    assert tested.status_code == 200, tested.text
+    assert str(TEST_ROOT / "backups") in tested.json()["message"]
+
+
 def test_non_admin_local_storage_root_must_stay_inside_configured_root(client, admin_headers, tmp_path):
     user_headers = create_user_and_headers(client, admin_headers, "storage-user")
 
@@ -114,6 +128,7 @@ def test_upload_backup_verify_and_delete(client, admin_headers, tmp_path):
 
     backups = client.get("/api/v1/backups", headers=admin_headers)
     verify = client.post(f"/api/v1/backups/{backup_id}/verify", headers=admin_headers)
+    verified_backup = client.get(f"/api/v1/backups/{backup_id}", headers=admin_headers)
     delete = client.delete(f"/api/v1/backups/{backup_id}", headers=admin_headers)
     audit = client.get("/api/v1/audit-logs", headers=admin_headers)
 
@@ -121,6 +136,10 @@ def test_upload_backup_verify_and_delete(client, admin_headers, tmp_path):
     assert backups.json()["total"] == 1
     assert verify.status_code == 200
     assert verify.json()["ok"] is True
+    assert verify.json()["verified_at"]
+    assert verified_backup.json()["verification"]["ok"] is True
+    assert verified_backup.json()["verification"]["actual_sha256"] == verify.json()["actual_sha256"]
+    assert verified_backup.json()["verification"]["verified_at"]
     assert delete.status_code == 200
     assert audit.status_code == 200
     assert any(item["action"] == "backup.delete" for item in audit.json()["items"])

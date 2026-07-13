@@ -72,10 +72,12 @@ def test_backup_run_uses_driver_and_creates_available_backup(client, admin_heade
     events = client.get(f"/api/v1/backup-tasks/{task_id}/events", headers=admin_headers)
 
     assert task.json()["status"] == "SUCCESS"
+    assert task.json()["created_by_username"] == "admin"
     assert backups.json()["total"] == 1
     assert backups.json()["items"][0]["status"] == "AVAILABLE"
     assert backups.json()["items"][0]["source_type"] == "MANUAL"
     assert backups.json()["items"][0]["md5"] is not None
+    assert backups.json()["items"][0]["created_by_username"] == "admin"
     assert any(event["message"] == "Backup completed" for event in events.json())
 
 
@@ -220,6 +222,7 @@ def test_restore_run_validates_checksum_and_uses_driver(client, admin_headers, t
     task = client.get(f"/api/v1/restore-tasks/{task_id}", headers=admin_headers)
     assert task.json()["status"] == "SUCCESS"
     assert task.json()["stdout_tail"] == "restored"
+    assert task.json()["created_by_username"] == "admin"
 
 
 def test_restore_task_claim_prevents_duplicate_driver_runs(client, admin_headers, tmp_path):

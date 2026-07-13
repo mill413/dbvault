@@ -56,6 +56,24 @@
           </template>
         </el-table-column>
         <el-table-column prop="compression" :label="$t('backup.compression')" width="80" sortable />
+        <el-table-column prop="created_by_username" :label="$t('common.createdBy')" width="120" sortable>
+          <template #default="{ row }">
+            {{ row.created_by_username || (row.created_by ? `#${row.created_by}` : '-') }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('backup.verifyResult')" width="130">
+          <template #default="{ row }">
+            <template v-if="row.verification">
+              <el-tag :type="row.verification.ok ? 'success' : 'danger'" size="small">
+                {{ row.verification.ok ? $t('backup.verifyPassed') : $t('backup.verifyFailed') }}
+              </el-tag>
+              <el-button link type="primary" size="small" @click="showVerification(row)">
+                {{ $t('common.details') }}
+              </el-button>
+            </template>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" :label="$t('common.createTime')" width="180" sortable>
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
@@ -110,6 +128,25 @@
         <el-button type="primary" @click="handleBackup" :loading="backupLoading">{{ $t('backup.runBackup') }}</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="verifyDialogVisible" :title="$t('backup.verifyResult')" width="680px">
+      <el-descriptions v-if="currentVerification" :column="1" border>
+        <el-descriptions-item :label="$t('common.status')">
+          <el-tag :type="currentVerification.ok ? 'success' : 'danger'">
+            {{ currentVerification.ok ? $t('backup.verifyPassed') : $t('backup.verifyFailed') }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item :label="$t('backup.expectedSha256')">
+          <code>{{ currentVerification.expected_sha256 }}</code>
+        </el-descriptions-item>
+        <el-descriptions-item :label="$t('backup.actualSha256')">
+          <code>{{ currentVerification.actual_sha256 }}</code>
+        </el-descriptions-item>
+        <el-descriptions-item :label="$t('backup.verifiedAt')">
+          {{ formatTime(currentVerification.verified_at) }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </el-dialog>
   </div>
 </template>
 
@@ -129,6 +166,8 @@ const storages = ref([])
 const loading = ref(false)
 const backupLoading = ref(false)
 const backupDialogVisible = ref(false)
+const verifyDialogVisible = ref(false)
+const currentVerification = ref(null)
 const backupFormRef = ref(null)
 const page = ref(1)
 const pageSize = ref(20)
@@ -239,11 +278,19 @@ const handleBackup = async () => {
 
 const handleVerify = async (row) => {
   try {
-    await verifyBackup(row.id)
-    ElMessage.success(t('backup.verifySubmitted'))
+    const response = await verifyBackup(row.id)
+    row.verification = response.data
+    currentVerification.value = response.data
+    verifyDialogVisible.value = true
+    ElMessage.success(response.data.ok ? t('backup.verifyPassed') : t('backup.verifyFailed'))
   } catch (error) {
     console.error('Failed to verify:', error)
   }
+}
+
+const showVerification = (row) => {
+  currentVerification.value = row.verification
+  verifyDialogVisible.value = true
 }
 
 const handleDownload = async (row) => {

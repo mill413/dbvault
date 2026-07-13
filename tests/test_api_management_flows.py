@@ -153,14 +153,20 @@ def test_database_storage_and_job_management(client, admin_headers, tmp_path):
 
     assert db_list.status_code == 200
     assert db_list.json()["total"] == 1
+    assert db_list.json()["items"][0]["created_by_username"] == "admin"
     assert db_update.json()["owner"] == "platform"
+    assert db_update.json()["created_by_username"] == "admin"
     assert storage_update.json()["is_default"] is True
+    assert storage_update.json()["created_by_username"] == "admin"
     assert job.status_code == 200
+    assert job.json()["created_by_username"] == "admin"
     assert job_list.json()["total"] == 1
+    assert job_list.json()["items"][0]["created_by_username"] == "admin"
     assert job_update.json()["name"] == "renamed-job"
     assert run_now.status_code == 200
     assert scheduled_backups.json()["total"] == 1
     assert scheduled_backups.json()["items"][0]["source_type"] == "SCHEDULED"
+    assert scheduled_backups.json()["items"][0]["created_by_username"] == "admin"
     assert job_delete.status_code == 200
     assert backups_after_job_delete.json()["total"] == 0
     assert db_delete.status_code == 200

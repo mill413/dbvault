@@ -35,6 +35,8 @@ class RestoreTaskRead(ORMModel):
     stdout_tail: str | None = None
     stderr_tail: str | None = None
     duration_seconds: float | None = None
+    created_by: int | None = None
+    created_by_username: str | None = None
     created_at: datetime
     started_at: datetime | None = None
     ended_at: datetime | None = None

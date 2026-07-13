@@ -59,6 +59,11 @@
             <el-tag :type="getEnvType(row.environment)" size="small">{{ row.environment }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="created_by_username" :label="$t('common.createdBy')" width="120" sortable>
+          <template #default="{ row }">
+            {{ row.created_by_username || (row.created_by ? `#${row.created_by}` : '-') }}
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('common.actions')" width="220" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="testConnection(row)">{{ $t('database.testConnection') }}</el-button>
